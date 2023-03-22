@@ -25,6 +25,7 @@ export default function App(props) {
 
     const [excludeNoFeedback, setExcludeNoFeedback] = useState(false)
     const [data, setData] = useState([])
+    const [fetchingData, setFetchingData] = useState(false)
     const [calData, setCalData] = useState([])
     const [avgConvoLength, setAvgConvoLength] = useState(0)
     const [countryUsers, setCountryUsers] = useState([])
@@ -36,6 +37,7 @@ export default function App(props) {
     const [calDifference, setCalDifference] = useState(false)
     // const [data, feedback] = useState([])
     const getData =  async () => {
+        setFetchingData(true)
         try{
             const response = await axios({
                 method: "GET",
@@ -45,7 +47,7 @@ export default function App(props) {
         } catch(e){
             console.error(e)
         }
-        
+        setFetchingData(false)
     }
     useEffect(()=>{
         var helpful = [{name: "Helpful", value: 0},{name: "Unhelpful", value: 0},{name: "No feedback", value: 0}]
@@ -244,7 +246,7 @@ export default function App(props) {
 
     return (
         <Box margin={"20px"}>  
-            <Button onClick={getData}>Refresh data</Button>
+            <Button isLoading={fetchingData} isDisabled={fetchingData} onClick={getData}>Refresh data</Button>
             <Text>Total amount of convos: {data.length}</Text>
             <Text>Avergae Convo length: {avgConvoLength}</Text>
             <Button onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>{excludeNoFeedback ? "Include No Feedback" : "Exclude No Feedback"}</Button>
