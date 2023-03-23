@@ -1,7 +1,7 @@
 
 import axios from "axios"
 export default async function handler(req, res) {
-    console.log(req.body)
+    // console.log(req.body)
     if (req.method !== 'GET') {
         res.status(405).send({ error: 'Only GET requests allowed' })
         return
@@ -25,6 +25,7 @@ export default async function handler(req, res) {
                             helpful
                             helpfulDetails
                             createdAt
+                            category
                           }
                           details {
                             region
@@ -44,14 +45,14 @@ export default async function handler(req, res) {
             //     page[index][date] = `${date.getUTCFullYear()}-${date.getUTCMonth()+1}-${date.getUTCDate()}`
             // })
             array = [].concat(array, response.data.data.registeredUsers)
-            console.log(response.data.data)
+            // console.log(response.data.data)
             if (response.data.data.registeredUsers.length < 100) {
                 again = false
             }
         } while (again)
         return res.status(200).send({ message: 'Data fetched', data: array })
     } catch(e){1
-        console.log("refresh", e)
+        // console.log("refresh", e)
         return res.status(400).send({ error: 'Could not get data' })
     }
     
