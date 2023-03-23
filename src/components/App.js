@@ -121,6 +121,12 @@ export default function App(props) {
         Object.keys(calCount).map((calDate)=>{
             calData.push({date: new Date(calDate), avgExchanges: calCount[calDate].totalExchanges/calCount[calDate].totalConvos,...calCount[calDate]})
         })
+        calData = calData.sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateA - dateB;
+        });
+        console.log(calData)
         setCountryUsers(countryData)
         setRegionUsers(regionData)
         setHelpfulCount(helpful)
