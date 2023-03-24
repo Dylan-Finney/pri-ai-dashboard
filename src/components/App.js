@@ -11,9 +11,11 @@ import Choropleth from "./Choropleth";
 import BarChart from "./BarChart";
 import Calendar from "./Calendar";
 import { Select as MultiSelect } from "chakra-react-select";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 
-export default function App(props) {
+function App(props) {
     const piRef = useRef(null)
     const worldRef = useRef(null)
     const jobRef = useRef(null)
@@ -39,8 +41,10 @@ export default function App(props) {
     })
 
     const [excludeNoFeedback, setExcludeNoFeedback] = useState(false)
+    const [refreshDate, setRefreshDate] = useState(null)
     const [excludeNoCategory, setExcludeNoCategory] = useState(false)
     const [data, setData] = useState([])
+    const [promptTotal, setPromptTotal] = useState(0)
     const [fetchingData, setFetchingData] = useState(false)
     const [calData, setCalData] = useState([])
     const [avgConvoLength, setAvgConvoLength] = useState(0)
@@ -54,7 +58,14 @@ export default function App(props) {
     const [calView, setCalView] = useState("totalConvos")
     const [calDifference, setCalDifference] = useState(false)
     const [excludeNoChosenApps, setExcludeNoChosenApps] = useState(true)
+    const [analysisDate, setAnalysisDate] = useState(new Date())
+    const [useDate, setUseDate] = useState(false)
     // const [data, feedback] = useState([])
+
+    useEffect(()=>{
+        getData()
+    },[])
+
     const getData =  async () => {
         setFetchingData(true)
         try{
@@ -63,9 +74,10 @@ export default function App(props) {
                 url: "/api/refresh"
             })
             setData(response.data.data)
+            setRefreshDate(new Date())
             // console.log(response.data.datalo)
         } catch(e){
-            console.error(e)
+            console.error("UNABLE TO GET DATA")
         }
         setFetchingData(false)
         
@@ -74,6 +86,7 @@ export default function App(props) {
         var helpful = [{name: "Helpful", value: 0},{name: "Unhelpful", value: 0},{name: "No feedback", value: 0}]
         var jobTotal = 0
         var appTotal = 0
+        var promptTotal = 0
         var usersAppsAdded = 0
         var countryCount = {}
         var regionCount = {}
@@ -88,9 +101,18 @@ export default function App(props) {
         var calData = []
         var appData = []
         var convoLength = 0
-        data.map(user=>{
+        var dataTemp = data
+        if (useDate){
+            dataTemp = data.filter(user=>{
+                const d1 = new Date(user.createdAt)
+                return d1.getFullYear() === analysisDate.getFullYear() &&
+                d1.getMonth() === analysisDate.getMonth() &&
+                d1.getDate() === analysisDate.getDate(); 
+            })
+        }
+        dataTemp.map(user=>{
             var addApps = false
-            var convoDateObj = new Date(user.exchanges[0].createdAt)
+            var convoDateObj = new Date(user.createdAt)
             var dateStr = `${convoDateObj.getUTCFullYear()}-${('0' + (convoDateObj.getMonth()+1)).slice(-2)}-${('0' + convoDateObj.getDate()).slice(-2)}`
             if (calCount[dateStr] === undefined){
                 calCount[dateStr] = {
@@ -101,6 +123,7 @@ export default function App(props) {
             calCount[dateStr].totalConvos++;
             // Helpful
             user.exchanges.map(exchange=>{
+                promptTotal++;
                 switch(exchange.helpful){
                     case true:
                         helpful[0].value++;
@@ -123,6 +146,7 @@ export default function App(props) {
                     }
                     categoryCount[exchange.category]++
                 }
+
                 
             })
             user.chosenApps.forEach(element => {
@@ -136,6 +160,7 @@ export default function App(props) {
                     addApps = true
                 }
             });
+            
             calCount[dateStr].totalExchanges+=user.exchanges.length
             convoLength+=user.exchanges.length
             //Country Count
@@ -178,6 +203,7 @@ export default function App(props) {
         Object.keys(categoryCount).map((category)=>{
             categoryData.push({name: category, value: categoryCount[category]})
         })
+
         calData = calData.sort((a, b) => {
             const dateA = new Date(a.date);
             const dateB = new Date(b.date);
@@ -210,9 +236,11 @@ export default function App(props) {
         setAvgConvoLength(convoLength/data.length)
         // console.log(calArray)
         setCalData(calArray)
+        setPromptTotal(promptTotal)
         setChosenAppsData(appData)
         setCategoryData(categoryData)
-    },[data])
+        setExcludeNoChosenApps(true)
+    },[data, useDate, analysisDate])
 
     useEffect(()=>{
         PieChart(helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)),{
@@ -234,7 +262,7 @@ export default function App(props) {
     useEffect(()=>{
         // console.log(calData)
         // console.log(calDifference)
-        if (calData[0] !== undefined){
+        if (calData[0] !== undefined && !useDate){
             switch(calDifference){
                 case true:
                     switch(calView){
@@ -363,7 +391,16 @@ export default function App(props) {
         var appData = []
         var usersIncluded = 0
         // console.log(chosenAppsFilter)
-        data.map(user=>{
+        var dataTemp = data
+        if (useDate){
+            dataTemp = data.filter(user=>{
+                const d1 = new Date(user.createdAt)
+                return d1.getFullYear() === analysisDate.getFullYear() &&
+                d1.getMonth() === analysisDate.getMonth() &&
+                d1.getDate() === analysisDate.getDate(); 
+            })
+        }
+        dataTemp.map(user=>{
             // var allApps = chosenAppsFilter.apps.length > 0 ? "":""
             // chosenAppsFilter.apps.every(r => chosenAppsData.includes(r))
             // chosenAppsFilter.apps.every(r => chosenAppsData.includes(r))
@@ -405,14 +442,34 @@ export default function App(props) {
         Object.keys(appCount).map((app)=>{
             appData.push({name: app, frequency: appCount[app]/ (excludeNoChosenApps === true ? usersIncluded : data.length)})
         })
+        if (appData.length === 0 ){
+            setExcludeNoChosenApps(false)
+        }
+        if (!excludeNoChosenApps && chosenAppsFilter.tags.length === 0){
+            appData.push({name: "None", frequency: (data.length - usersIncluded)/data.length})
+        }
         setChosenAppsData(appData)
-    }, [chosenAppsFilter, excludeNoChosenApps])
+    }, [chosenAppsFilter, excludeNoChosenApps, analysisDate, useDate])
 
+
+    function onDayChange(date) {
+        setAnalysisDate(date);
+      }
 
     return (
         <Box margin={"20px"}>  
             <Button isLoading={fetchingData} isDisabled={fetchingData} onClick={getData}> {data.length > 0 ? "Refresh data" : "You Need To Fetch Data"}</Button>
-            <Text>Total amount of convos: {data.length}</Text>
+            <Text>Last Refresh Time: {refreshDate === null ? `${refreshDate}` : `${refreshDate.toLocaleDateString()} ${refreshDate.toLocaleTimeString()}`}</Text>
+            <Button isDisabled={data.length===0} onClick={()=>{setUseDate(!useDate)}}>{useDate ? "Overview" : "Use Date"}</Button>
+            <DatePicker selected={analysisDate} onChange={(date) => setAnalysisDate(date)} disabled={!useDate}/>
+            <Button isDisabled={!useDate} onClick={()=>{setAnalysisDate(new Date())}}>Today</Button>
+            <Text>Total amount of convos: {useDate ? data.filter(user=>{
+                const d1 = new Date(user.createdAt)
+                return d1.getFullYear() === analysisDate.getFullYear() &&
+                d1.getMonth() === analysisDate.getMonth() &&
+                d1.getDate() === analysisDate.getDate(); 
+            }).length : data.length}</Text>
+            <Text>Total ammount of prompts: {promptTotal}</Text>
             <Text>Avergae Convo length: {avgConvoLength}</Text>
             <Button onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>{excludeNoFeedback ? "Include No Feedback" : "Exclude No Feedback"}</Button>
             <svg ref={piRef}/>
@@ -424,14 +481,21 @@ export default function App(props) {
             </Select>
             <svg ref={worldRef}/>
             <svg ref={jobRef}/>
-            <Select placeholder='Select option' defaultValue={"totalConvos"} onChange={(e)=>{setCalView(e.target.value)}}>
-                <option value='totalConvos'>Total Conversations</option>
-                <option value='totalExchanges'>Total Exchanges</option>
-                <option value='avgExchanges'>Average Exchanges</option>
-            </Select>
-            <Button onClick={()=>{setCalDifference(!calDifference)}}>{calDifference ? "Show Total" : "Show Difference"}</Button>
-            <svg ref={calRef}/>
-            <Button onClick={()=>{setExcludeNoChosenApps(!excludeNoChosenApps)}}>{excludeNoChosenApps ? "Include No Chosen Apps" : "Exclude No Chosen Apps"}</Button>
+            
+            {
+                 !useDate && (
+                 <>
+                 <Select placeholder='Select option' defaultValue={"totalConvos"} onChange={(e)=>{setCalView(e.target.value)}}>
+                    <option value='totalConvos'>Total Conversations</option>
+                    <option value='totalExchanges'>Total Exchanges</option>
+                    <option value='avgExchanges'>Average Exchanges</option>
+                </Select>
+                  <Button onClick={()=>{setCalDifference(!calDifference)}}>{calDifference ? "Show Total" : "Show Difference"}</Button>
+                <svg ref={calRef}/>
+                 </>)
+            }
+           
+            <Button isDisabled={chosenAppsData.length===1&&chosenAppsData[0].name==="None"} onClick={()=>{setExcludeNoChosenApps(!excludeNoChosenApps)}}>{excludeNoChosenApps ? "Include No Chosen Apps" : "Exclude No Chosen Apps"}</Button>
             <MultiSelect
                 isMulti
                 name="tags"
@@ -478,3 +542,8 @@ export default function App(props) {
         </Box>
     )
 }
+
+
+  
+
+export default App
