@@ -23,6 +23,7 @@ export default function PieChart(data, {
     const N = d3.map(data, name);
     const V = d3.map(data, value);
     const I = d3.range(N.length).filter(i => !isNaN(V[i]));
+    const Total = V.reduce((partialSum, a) => partialSum + a, 0);
   
     // Unique the names.
     if (names === undefined) names = N;
@@ -38,9 +39,10 @@ export default function PieChart(data, {
     // Compute titles.
     if (title === undefined) {
       const formatValue = d3.format(format);
-      title = i => `${N[i]}\n${formatValue(V[i])}`;
+      title = i => `${N[i]}\n${formatValue(V[i])} - ${((V[i]/Total)*100).toFixed(3)}%`;
     } else {
       const O = d3.map(data, d => d);
+      
       const T = title;
       title = i => T(O[i], i, data);
     }
@@ -87,6 +89,5 @@ export default function PieChart(data, {
         .attr("y", (_, i) => `${i * 1.1}em`)
         .attr("font-weight", (_, i) => i ? null : "bold")
         .text(d => d);
-  
     return Object.assign(svg.node(), {scales: {color}});
   }

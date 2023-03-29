@@ -54,10 +54,12 @@ function App(props) {
     const [helpfulCount, setHelpfulCount] = useState([])
     const [jobs, setJobs] = useState([])
     const [chosenAppsData, setChosenAppsData] = useState([])
+    const [categorySort, setCategorySort] = useState("value desc")
     const [mapView, setMapView] = useState("world")
     const [calView, setCalView] = useState("totalConvos")
     const [calDifference, setCalDifference] = useState(false)
     const [excludeNoChosenApps, setExcludeNoChosenApps] = useState(true)
+    const [excludeNoJob, setExcludeNoJob] = useState(true)
     const [analysisDate, setAnalysisDate] = useState(new Date())
     const [useDate, setUseDate] = useState(false)
     // const [data, feedback] = useState([])
@@ -126,16 +128,18 @@ function App(props) {
                 promptTotal++;
                 switch(exchange.helpful){
                     case true:
+                        console.log(exchange)
                         helpful[0].value++;
                         break
                     case false:
                         helpful[1].value++;
                         break
+                    case null:
                     default:
                         helpful[2].value++;
                         break
                 }
-                if (exchange.category === null){
+                if (exchange.category === undefined){
                     if (categoryCount["None"] === undefined){
                         categoryCount["None"] = 0
                     }
@@ -164,23 +168,21 @@ function App(props) {
             calCount[dateStr].totalExchanges+=user.exchanges.length
             convoLength+=user.exchanges.length
             //Country Count
-            if (user.details!==null){
-                if (countryCount[user.details.country] === undefined){
-                    countryCount[user.details.country] = 0
-                    regionCount[user.details.country] = {}
-                    regionCount[user.details.country][user.details.region] = 0
-                } else if (regionCount[user.details.country][user.details.region] === undefined) {
-                    regionCount[user.details.country][user.details.region] = 0
-                }
-                const job = user.details.job.trim().toLowerCase()
-                if (jobCount[job] === undefined){
-                    jobCount[job] = 0
-                }
-                countryCount[user.details.country]++;
-                regionCount[user.details.country][user.details.region]++;
-                jobCount[job]++;
-                jobTotal++
+            if (countryCount[user.country] === undefined){
+                countryCount[user.country] = 0
+                regionCount[user.country] = {}
+                regionCount[user.country][user.region] = 0
+            } else if (regionCount[user.country][user.region] === undefined) {
+                regionCount[user.country][user.region] = 0
             }
+            const job = user.job ? user.job.trim().toLowerCase() : "None"
+            if (jobCount[job] === undefined){
+                jobCount[job] = 0
+            }
+            countryCount[user.country]++;
+            regionCount[user.country][user.region]++;
+            jobCount[job]++;
+            jobTotal++
         })
         Object.keys(countryCount).map((country)=>{
             countryData.push({name: rename.get(country) || country, users: countryCount[country]})
@@ -192,7 +194,7 @@ function App(props) {
             })
         })
         Object.keys(jobCount).map((job)=>{
-            jobData.push({name: job, frequency: jobCount[job]/jobTotal})
+            jobData.push({name: job, frequency: jobCount[job]})
         })
         Object.keys(calCount).map((calDate)=>{
             calData.push({date: new Date(calDate), avgExchanges: calCount[calDate].totalExchanges/calCount[calDate].totalConvos,...calCount[calDate]})
@@ -233,7 +235,7 @@ function App(props) {
         setRegionUsers(regionData)
         setHelpfulCount(helpful)
         setJobs(jobData)
-        setAvgConvoLength(convoLength/data.length)
+        setAvgConvoLength(convoLength/dataTemp.length)
         // console.log(calArray)
         setCalData(calArray)
         setPromptTotal(promptTotal)
@@ -359,18 +361,35 @@ function App(props) {
         
     }, [countryUsers, mapView])
     useEffect(()=>{
-        BarChart(jobs, {
-            x: d => d.frequency,
-            y: d => d.name,
-            yDomain: d3.groupSort(jobs, ([d]) => -d.frequency, d => d.name), // sort by descending frequency
-            xFormat: "%",
-            xLabel: "Frequency →",
-            width: 640,
-            color: "steelblue",
-            marginLeft: 100,
-            marginRight: 20
-          }, jobRef)
-    }, [jobs])
+
+        if (jobs.length>0){
+            var filteredJobs = [{
+                name: "test",
+                frequency: 1
+            }]
+            const sum = jobs.map(job=>!(job.name === "None" && excludeNoJob) && job.frequency).reduce((prev, next) => prev + next)
+            var filteredJobs = jobs.filter(entry => !(entry.name === "None" && excludeNoJob)).map((job)=>{
+                var temp = Object.assign({}, job);
+                temp.frequency = temp.frequency/sum
+                return temp;
+            })
+            
+            
+    
+            BarChart(filteredJobs, {
+                x: d => d.frequency,
+                y: d => d.name,
+                yDomain: d3.groupSort(filteredJobs, ([d]) => -d.frequency, d => d.name), // sort by descending frequency
+                xFormat: "%",
+                xLabel: "Frequency →",
+                width: 640,
+                color: "steelblue",
+                marginLeft: 100,
+                marginRight: 20
+              }, jobRef)
+        }
+        
+    }, [jobs,excludeNoJob])
     useEffect(()=>{
         BarChart(chosenAppsData, {
             x: d => d.frequency,
@@ -470,16 +489,78 @@ function App(props) {
                 d1.getDate() === analysisDate.getDate(); 
             }).length : data.length}</Text>
             <Text>Total ammount of prompts: {promptTotal}</Text>
-            <Text>Avergae Convo length: {avgConvoLength}</Text>
+            <Text>Average Convo length: {avgConvoLength}</Text>
             <Button onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>{excludeNoFeedback ? "Include No Feedback" : "Exclude No Feedback"}</Button>
             <svg ref={piRef}/>
+            <ul>
+            {
+                helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)).sort(function(a, b){return b.value-a.value}).map(helpful=>{
+                    return (
+                        <li key={helpful.name}>
+                        {helpful.name} - {helpful.value} ({((helpful.value/(excludeNoFeedback ? promptTotal - helpfulCount.find(entry=>entry.name=== "No feedback").value : promptTotal))*100).toFixed(3)}%)
+                        
+                        </li>
+                    )
+                })
+            }
+                <li>Total - {(excludeNoFeedback ? promptTotal - helpfulCount.find(entry=>entry.name=== "No feedback").value : promptTotal)}</li>
+            </ul>
             <Button onClick={()=>{setExcludeNoCategory(!excludeNoCategory)}}>{excludeNoCategory ? "Include No Category" : "Exclude No Category"}</Button>
             <svg ref={categoryRef}/>
+            <Select placeholder='Sort Categories' defaultValue={"value desc"} onChange={(e)=>{setCategorySort(e.target.value)}}>
+                <option value='value desc'>Value - DESC</option>
+                <option value='value asc'>Value - ASC</option>
+                <option value='name desc'>Name - Z-{">"}A</option>
+                <option value='name asc'>Name - A-{">"}Z</option>
+            </Select>
+            <ul>
+            {
+                categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).sort(function(a, b){
+                    switch(categorySort){
+                        case "value desc":
+                            return b.value-a.value
+                        case "value asc":
+                            return a.value-b.value
+                        case "name asc":
+                            if (a.name < b.name) {
+                                return -1;
+                              }
+                              if (a.name > b.name) {
+                                return 1;
+                              }
+                              return 0;
+                        case "name desc":
+                            if (a.name < b.name) {
+                                return 1;
+                              }
+                              if (a.name > b.name) {
+                                return -1;
+                              }
+                              return 0;
+                        default:
+                            return null
+                    }
+                }).map(category=>{
+                    return (
+                        <li key={category.name}>
+                            {console.log({
+                                category,
+                                excludeNoCategory
+                            })} 
+                        {category.name} - {category.value} ({((category.value/(excludeNoCategory ? promptTotal - categoryData.find(entry=>entry.name=== "None").value : promptTotal))*100).toFixed(3)}%)
+                        
+                        </li>
+                    )
+                })
+            }
+            <li>Total - {(excludeNoCategory ? promptTotal - categoryData.find(entry=>entry.name=== "None").value : promptTotal)}</li>
+            </ul>
             <Select placeholder='Select option' defaultValue={"world"} onChange={(e)=>{setMapView(e.target.value)}}>
                 <option value='world'>World</option>
                 <option value='US'>US</option>
             </Select>
             <svg ref={worldRef}/>
+            <Button onClick={()=>{setExcludeNoJob(!excludeNoJob)}}>{excludeNoJob ? "Include No Jobs" : "Exclude No Jobs"}</Button>
             <svg ref={jobRef}/>
             
             {

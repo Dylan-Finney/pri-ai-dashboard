@@ -11,7 +11,7 @@ export default async function handler(req, res) {
         const array = await getData()
         return res.status(200).send({ message: 'Data fetched', data: array })
     } catch(e){1
-        // console.log("refresh", e)
+        console.log("refresh", e)
         return res.status(400).send({ error: 'Could not get data' })
     }
     
