@@ -21,7 +21,7 @@ export default function BarChart(data, {
     yDomain, // an array of (ordinal) y-values
     yRange, // [top, bottom]
     color = "currentColor", // bar fill color
-    titleColor = "white", // title fill color when atop bar
+    titleColor = "black", // title fill color when atop bar
     titleAltColor = "currentColor", // title fill color when atop background
   } = {},svgRef) {
     // Compute values.
@@ -44,7 +44,7 @@ export default function BarChart(data, {
     const xScale = xType(xDomain, xRange);
     const yScale = d3.scaleBand(yDomain, yRange).padding(yPadding);
     const xAxis = d3.axisTop(xScale).ticks(width / 80, xFormat);
-    const yAxis = d3.axisLeft(yScale).tickSizeOuter(0);
+    const yAxis = d3.axisLeft(yScale).tickSizeOuter(10);
   
     // Compute titles.
     if (title === undefined) {
@@ -66,6 +66,7 @@ export default function BarChart(data, {
     svg.append("g")
         .attr("transform", `translate(0,${marginTop})`)
         .call(xAxis)
+        .attr("font-family", "Inter")
         .call(g => g.select(".domain").remove())
         .call(g => g.selectAll(".tick line").clone()
             .attr("y2", height - marginTop - marginBottom)
@@ -75,39 +76,58 @@ export default function BarChart(data, {
             .attr("y", -22)
             .attr("fill", "currentColor")
             .attr("text-anchor", "end")
-            .text(xLabel));
+            .attr("font-family", "Inter")
+            .text(xLabel)
+            .attr("font-family", "Inter"));
   
     svg.append("g")
-        .attr("fill", color)
+        .attr("fill", "#15B79E")
       .selectAll("rect")
       .data(I)
       .join("rect")
         .attr("x", xScale(0))
         .attr("y", i => yScale(Y[i]))
         .attr("width", i => xScale(X[i]) - xScale(0))
-        .attr("height", yScale.bandwidth());
-  
+        .attr("height", yScale.bandwidth())
+        .on('mouseenter', function (actual, i) {
+          console.log(X[i])
+          svg.selectAll("g").selectAll("rect").attr("opacity", 0.3)
+          svg.selectAll(".value").attr("opacity", (label,index) => label === i ? 1 : 0.7)
+          svg.selectAll(".title").selectAll("text").attr("opacity", (label,index) => Y[i] === label ? 1 :  0.3)
+          d3.select(this).attr("opacity", 1)
+        })
+        .on('mouseleave', function (actual, i) {
+          svg.selectAll(".title").selectAll("text").attr("opacity", 1 )
+          svg.selectAll(".value").attr("opacity", 1)
+          svg.selectAll("g").selectAll("rect").attr("opacity", 1)
+        })
+       
     svg.append("g")
         .attr("fill", titleColor)
         .attr("text-anchor", "end")
-        .attr("font-family", "sans-serif")
         .attr("font-size", 10)
+        .attr("font-family", "Inter")
       .selectAll("text")
       .data(I)
       .join("text")
         .attr("x", i => xScale(X[i]))
         .attr("y", i => yScale(Y[i]) + yScale.bandwidth() / 2)
         .attr("dy", "0.35em")
+        .attr("class", "value")
         .attr("dx", -4)
         .text(title)
         .call(text => text.filter(i => xScale(X[i]) - xScale(0) < 20) // short bars
             .attr("dx", +4)
             .attr("fill", titleAltColor)
-            .attr("text-anchor", "start"));
+            .attr("text-anchor", "start")
+            .attr("font-family", "Inter"));
+            
   
     svg.append("g")
         .attr("transform", `translate(${marginLeft},0)`)
-        .call(yAxis);
+        .call(yAxis)
+        .attr("class", "title")
+        .attr("font-family", "Inter");
   
     return svg.node();
   }

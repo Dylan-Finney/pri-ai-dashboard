@@ -1,9 +1,10 @@
 /* eslint-disable react/no-unescaped-entities */
-import { Box, Button, Select, Text } from "@chakra-ui/react";
+import { Box, Button, ButtonGroup, Flex, Grid, GridItem, Input, Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverTrigger, Portal, Select, SimpleGrid, Spacer, Table, TableContainer, Tbody, Td, Text, Th, Thead, Tr } from "@chakra-ui/react";
 import axios from "axios"
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import PieChart from "./PieChart";
+import DonutChart from "./DonutChart";
 import world from "./countries-50m.json"
 import us from "./counties-albers-10m.json"
 import * as topojson from "topojson-client";
@@ -13,6 +14,9 @@ import Calendar from "./Calendar";
 import { Select as MultiSelect } from "chakra-react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import ReactPaginate from 'react-paginate';``
+
+import { appIcons } from '../assets/apps';
 
 
 function App(props) {
@@ -39,13 +43,17 @@ function App(props) {
         apps: [],
         tags: []
     })
-
+    const initialFocusRef = useRef()
     const [excludeNoFeedback, setExcludeNoFeedback] = useState(false)
     const [refreshDate, setRefreshDate] = useState(null)
     const [excludeNoCategory, setExcludeNoCategory] = useState(false)
+    const [dateButton, setDateButton] = useState("All time")
     const [data, setData] = useState([])
     const [promptTotal, setPromptTotal] = useState(0)
+    const [allExchanges, setAllExchanges] = useState([])
     const [fetchingData, setFetchingData] = useState(false)
+    const [promptFeedbackView, setPromptFeedbackView] = useState({feedback:[], category:[], job:[], apps:[], dataSources:[]})
+    const [promptDataSourceViewUnion, setPromptDataSourceViewUnion] = useState(false)
     const [calData, setCalData] = useState([])
     const [avgConvoLength, setAvgConvoLength] = useState(0)
     const [countryUsers, setCountryUsers] = useState([])
@@ -60,8 +68,17 @@ function App(props) {
     const [calDifference, setCalDifference] = useState(false)
     const [excludeNoChosenApps, setExcludeNoChosenApps] = useState(true)
     const [excludeNoJob, setExcludeNoJob] = useState(true)
-    const [analysisDate, setAnalysisDate] = useState(new Date())
+    const [analysisDate, setAnalysisDate] = useState({start: new Date(), end:null})
     const [useDate, setUseDate] = useState(false)
+    const [showFilter, setShowFilter] = useState(false)
+    const [useRange, setUseRange] = useState(false)
+    const [promptSearch, setPromptSearch] = useState("")
+    const [promptRange, setPromptRange] = useState(0)
+    const [promptAnalysisRange, setPromptAnalysisRange] = useState({start: 0, end: 0})
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    const [categoryColors, setCategoryColors] = useState({})
+    const [appsSum, setAppsSum] = useState([])
+    const [helpfulColors, setHelpfulColors] = useState({})
     // const [data, feedback] = useState([])
 
     useEffect(()=>{
@@ -84,6 +101,97 @@ function App(props) {
         setFetchingData(false)
         
     }
+
+    const getAppLogo = (app) => {
+        switch(app){
+          case "23andMe":
+            return appIcons._23andme
+          case "Airbnb":
+            return appIcons.airbnb
+          case "Amazon":
+            return appIcons.amazon
+          case "Ancestry":
+            return appIcons.ancestry
+          case "Apple Health":
+            return appIcons.appleHealth
+          case "Bosch":
+            return appIcons.bosch
+          case "Doordash":
+            return appIcons.doordash
+          case "Evernote":
+            return appIcons.evernote
+          case "Facebook":
+            return appIcons.facebook
+          case "Fitbit":
+            return appIcons.fitbit
+          case "Google Calendar":
+            return appIcons.googleCal
+          case "Google Maps":
+            return appIcons.googleMaps
+          case "Google":
+            return appIcons.google
+          case "Instacart":
+            return appIcons.instacart
+          case "Instagram":
+            return appIcons.instagram
+          case "iTunes":
+            return appIcons.itunes
+          case "Linkedin":
+            return appIcons.linkedin
+          case "Lyft":
+            return appIcons.lyft
+          case "Maps":
+            return appIcons.maps
+          case "Medium":
+            return appIcons.medium
+          case "Movesense":
+            return appIcons.movesense
+          case "Netflix":
+            return appIcons.netflix
+          case "Notion":
+            return appIcons.notion
+          case "Oura":
+            return appIcons.oura
+          case "Peloton":
+            return appIcons.peloton
+          case "Polar":
+            return appIcons.polar
+          case "Prime Video":
+            return appIcons.primeVideo
+          case "Reddit":
+            return appIcons.reddit
+          case "Runkeeper":
+            return appIcons.runkeeper
+          case "Snapchat":
+            return appIcons.snapchat
+          case "Spotify":
+            return appIcons.spotify
+          case "Strava":
+            return appIcons.strava
+          case "Suunto":
+            return appIcons.suunto
+          case "Tiktok":
+            return appIcons.tiktok
+          case "Tripadvisor":
+            return appIcons.tripadvisor
+          case "Twitch":
+            return appIcons.twitch
+          case "Twitter":
+            return appIcons.twitter
+          case "Uber Eats":
+            return appIcons.uberEats
+          case "Uber":
+            return appIcons.uber
+          case "Waze":
+            return appIcons.waze
+          case "Withings":
+            return appIcons.withings
+          case "Youtube":
+            return appIcons.youtube
+          default:
+            return ""
+        }
+      }
     useEffect(()=>{
         var helpful = [{name: "Helpful", value: 0},{name: "Unhelpful", value: 0},{name: "No feedback", value: 0}]
         var jobTotal = 0
@@ -102,16 +210,25 @@ function App(props) {
         var jobData = []
         var calData = []
         var appData = []
+        var appsSum = {}
         var convoLength = 0
+        var promptAppSum = []
         var dataTemp = data
         if (useDate){
-            dataTemp = data.filter(user=>{
-                const d1 = new Date(user.createdAt)
-                return d1.getFullYear() === analysisDate.getFullYear() &&
-                d1.getMonth() === analysisDate.getMonth() &&
-                d1.getDate() === analysisDate.getDate(); 
-            })
+            if (analysisDate.end !== null){
+                dataTemp = data.filter(user=>{
+                    const d1 = new Date(user.createdAt)
+                    return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime() + 86400000); 
+                })
+            } else {
+                dataTemp = data.filter(user=>{
+                    const d1 = new Date(user.createdAt)
+                    console.log({a: d1.toDateString(), b: analysisDate.start.toDateString()})
+                    return d1.toDateString() === analysisDate.start.toDateString(); 
+                })
+            }
         }
+        var exchanges = []
         dataTemp.map(user=>{
             var addApps = false
             var convoDateObj = new Date(user.createdAt)
@@ -126,6 +243,8 @@ function App(props) {
             // Helpful
             user.exchanges.map(exchange=>{
                 promptTotal++;
+                var dataSources = []
+                var exchangeTemp = exchange
                 switch(exchange.helpful){
                     case true:
                         console.log(exchange)
@@ -139,10 +258,21 @@ function App(props) {
                         helpful[2].value++;
                         break
                 }
+                apps.map(val=>val.name).forEach((value)=>{
+                    if (exchange.prompt.toLowerCase().search(value.toLowerCase())>-1){
+                        if (appsSum[value] === undefined){
+                            appsSum[value] = 0
+                        }
+                        appsSum[value]++
+                        dataSources.push(value)
+                    }
+                })
+
                 if (exchange.category === undefined){
                     if (categoryCount["None"] === undefined){
                         categoryCount["None"] = 0
                     }
+                    exchange["category"] = "None"
                     categoryCount["None"]++
                 } else {
                     if (categoryCount[exchange.category] === undefined){
@@ -150,6 +280,14 @@ function App(props) {
                     }
                     categoryCount[exchange.category]++
                 }
+                
+                exchange["country"] = user.country
+                exchange["region"] = user.region
+                exchange["job"] = user.job ? user.job.trim().toLowerCase() : "None"
+                exchange["chosenApps"] = user.chosenApps ? user.chosenApps : []
+                exchange["dataSources"] = dataSources
+                // var exchangeTemp = exchange
+                exchanges.push(exchangeTemp)
 
                 
             })
@@ -205,6 +343,9 @@ function App(props) {
         Object.keys(categoryCount).map((category)=>{
             categoryData.push({name: category, value: categoryCount[category]})
         })
+        Object.keys(appsSum).map((app)=>{
+            promptAppSum.push({name: app, value: appsSum[app]})
+        })
 
         calData = calData.sort((a, b) => {
             const dateA = new Date(a.date);
@@ -229,7 +370,7 @@ function App(props) {
         }
         // console.log("categoryCount",categoryCount)
         // console.log("categoryData",categoryData)
-
+        console.log(appsSum)
         calArray.push(calData[calData.length - 1]);
         setCountryUsers(countryData)
         setRegionUsers(regionData)
@@ -242,24 +383,47 @@ function App(props) {
         setChosenAppsData(appData)
         setCategoryData(categoryData)
         setExcludeNoChosenApps(true)
+        setAllExchanges(exchanges)
+        setAppsSum(promptAppSum)
     },[data, useDate, analysisDate])
 
     useEffect(()=>{
+        var width = 260
+        var height = 260
         PieChart(helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)),{
             name: d => d.name,
             value: d => d.value,
-            width: 640,
-            height: 500
+            width,
+            height,
+            innerRadius: width * 0.32
         }, piRef)
+        // Get Fill values from d3
+        var paths = d3.select(piRef.current).selectChild("g").selectChildren("path")
+        const pathData = paths.nodes().map(path => ({
+            fill: d3.select(path).attr('fill'),
+            title: d3.select(path).select("title").text().split("\n")[0]
+          }));
+        console.log("pathData",pathData)
+        setHelpfulColors(pathData)
     }, [helpfulCount, excludeNoFeedback])
 
     useEffect(()=>{
+        var width = 400
+        var height = 400
         PieChart(categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)),{
             name: d => d.name,
             value: d => d.value,
-            width: 640,
-            height: 500
+            width: width,
+            height: height,
+            innerRadius: width * 0.32
         }, categoryRef)
+        var paths = d3.select(categoryRef.current).selectChild("g").selectChildren("path")
+        const pathData = paths.nodes().map(path => ({
+            fill: d3.select(path).attr('fill'),
+            title: d3.select(path).select("title").text().split("\n")[0]
+          }));
+        console.log(pathData)
+        setCategoryColors(pathData)
     }, [categoryData, excludeNoCategory])
     useEffect(()=>{
         // console.log(calData)
@@ -412,12 +576,17 @@ function App(props) {
         // console.log(chosenAppsFilter)
         var dataTemp = data
         if (useDate){
-            dataTemp = data.filter(user=>{
-                const d1 = new Date(user.createdAt)
-                return d1.getFullYear() === analysisDate.getFullYear() &&
-                d1.getMonth() === analysisDate.getMonth() &&
-                d1.getDate() === analysisDate.getDate(); 
-            })
+            if (analysisDate.end !== null){
+                dataTemp = data.filter(user=>{
+                    const d1 = new Date(user.createdAt)
+                    return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime() + 86400000); 
+                })
+            } else {
+                data.filter(user=>{
+                    const d1 = new Date(user.createdAt)
+                    return d1.toDateString() === analysisDate.start.toDateString(); 
+                })
+            }
         }
         dataTemp.map(user=>{
             // var allApps = chosenAppsFilter.apps.length > 0 ? "":""
@@ -470,50 +639,331 @@ function App(props) {
         setChosenAppsData(appData)
     }, [chosenAppsFilter, excludeNoChosenApps, analysisDate, useDate])
 
+    function Items({ currentItems }) {
+        return (
+            <>
+            {currentItems &&
+              currentItems.map((item, i) => (
+                <Tr key={i}>
+                        {/* Category */}
+                        <Td>{item.category}</Td> 
+                        {/* Prompt */}
+                        <Td>{item.prompt}</Td>
+                        {/* Data Sources */}
+                        <Td>{item.dataSources.length > 0 ?  item.dataSources[0] : "N/A"}</Td>
+                        {/* Analyses */}
+                        <Td>N/A</Td>
+                        {/* Answer */}
+                        <Td>N/A</Td>
+                                
+                </Tr>
+              ))}
+            </>
+        );
+      }
+
+      function PaginatedItems({ items, itemsPerPage, Component }) {
+        // Here we use item offsets; we could also use page offsets
+        // following the API or data you're working with.
+        const [itemOffset, setItemOffset] = useState(0);
+        console.log(items)
+      
+        // Simulate fetching items from another resources.
+        // (This could be items from props; or items loaded in a local state
+        // from an API endpoint with useEffect and useState)
+        const endOffset = itemOffset + itemsPerPage;
+        console.log(`Loading items from ${itemOffset} to ${endOffset}`);
+        const currentItems = items.slice(itemOffset, endOffset);
+        const pageCount = Math.ceil(items.length / itemsPerPage);
+      
+        // Invoke when user click to request another page.
+        const handlePageClick = (event) => {
+          const newOffset = (event.selected * itemsPerPage) % items.length;
+          console.log(
+            `User requested page number ${event.selected}, which is offset ${newOffset}`
+          );
+          setItemOffset(newOffset);
+        };
+      
+        return (
+          <>
+           <TableContainer overflowX={"auto"} borderRadius={"md"}>
+                <Table borderRadius={"md"}>
+                    <Thead background={"#134E48"} >
+                        <Tr>
+                            <Th color={"#FFFFFF"}>Category</Th>
+                            <Th color={"#FFFFFF"}>Prompt Content</Th>
+                            <Th color={"#FFFFFF"}>Data Sources</Th>
+                            <Th color={"#FFFFFF"}>Analyses</Th>
+                            <Th color={"#FFFFFF"}>Answer</Th>
+                        </Tr>
+                    </Thead>
+                    <Tbody>
+                    <Items currentItems={currentItems} />
+                    </Tbody>
+                </Table>
+            </TableContainer>
+            
+            <ReactPaginate
+                      nextLabel="next >"
+                      onPageChange={handlePageClick}
+                      pageRangeDisplayed={3}
+                      marginPagesDisplayed={2}
+                      pageCount={pageCount}
+                      previousLabel="< previous"
+                      pageClassName="page-item"
+                      pageLinkClassName="page-link"
+                      previousClassName="page-item"
+                      previousLinkClassName="page-link"
+                      nextClassName="page-item"
+                      nextLinkClassName="page-link"
+                      breakLabel="..."
+                      breakClassName="page-item"
+                      breakLinkClassName="page-link"
+                      containerClassName="pagination"
+                      activeClassName="active"
+                      renderOnZeroPageCount={null}
+              
+            />
+          </>
+        );
+      }
+
 
     function onDayChange(date) {
         setAnalysisDate(date);
       }
 
     return (
-        <Box margin={"20px"}>  
-            <Button isLoading={fetchingData} isDisabled={fetchingData} onClick={getData}> {data.length > 0 ? "Refresh data" : "You Need To Fetch Data"}</Button>
-            <Text>Last Refresh Time: {refreshDate === null ? `${refreshDate}` : `${refreshDate.toLocaleDateString()} ${refreshDate.toLocaleTimeString()}`}</Text>
-            <Button isDisabled={data.length===0} onClick={()=>{setUseDate(!useDate)}}>{useDate ? "Overview" : "Use Date"}</Button>
-            <DatePicker selected={analysisDate} onChange={(date) => setAnalysisDate(date)} disabled={!useDate}/>
-            <Button isDisabled={!useDate} onClick={()=>{setAnalysisDate(new Date())}}>Today</Button>
-            <Text>Total amount of convos: {useDate ? data.filter(user=>{
-                const d1 = new Date(user.createdAt)
-                return d1.getFullYear() === analysisDate.getFullYear() &&
-                d1.getMonth() === analysisDate.getMonth() &&
-                d1.getDate() === analysisDate.getDate(); 
-            }).length : data.length}</Text>
-            <Text>Total ammount of prompts: {promptTotal}</Text>
-            <Text>Average Convo length: {avgConvoLength}</Text>
-            <Button onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>{excludeNoFeedback ? "Include No Feedback" : "Exclude No Feedback"}</Button>
-            <svg ref={piRef}/>
-            <ul>
-            {
-                helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)).sort(function(a, b){return b.value-a.value}).map(helpful=>{
-                    return (
-                        <li key={helpful.name}>
-                        {helpful.name} - {helpful.value} ({((helpful.value/(excludeNoFeedback ? promptTotal - helpfulCount.find(entry=>entry.name=== "No feedback").value : promptTotal))*100).toFixed(3)}%)
-                        
-                        </li>
-                    )
-                })
+        <>
+        <Box height={"111px"} background={"linear-gradient(26.57deg, #125D56 8.33%, #107569 91.67%)"}>
+            <Text display={{base: "none", md: "block"}} color={"#FFFFFF"} marginLeft={"30px"} paddingTop={"25px"} fontSize={"30px"} fontWeight={"600"}>Prifina Intelligence dashboard - Pri-AI Users</Text>
+            <Text display={{base: "block", md: "none"}} color={"#FFFFFF"} marginLeft={"30px"} paddingTop={"25px"} fontSize={"30px"} fontWeight={"600"}>Pri-AI Dashboard</Text>
+        </Box>
+        <Box margin={"20px"}> 
+            <Flex width={"100%"} flexDirection={{base :"column", lg: "row"}}>
+            <Box width={"100%"} overflowX={"auto"}>
+            <ButtonGroup isDisabled={data.length===0} isAttached variant={"outline"}>
+            <Button isActive={dateButton === "7 days"} onClick={() => {const date = new Date(); var date2 = new Date(); date2.setDate(date2.getDate() - 7); setDateButton("7 days"); setAnalysisDate({start: date, end: date2}); setUseDate(true)}} >Last 7 days</Button>
+            <Button isActive={dateButton === "14 days"} onClick={() => {const date = new Date(); var date2 = new Date(); date2.setDate(date2.getDate() - 14); setDateButton("14 days"); setAnalysisDate({start: date, end: date2}); setUseDate(true)}} >Last 14 days</Button>
+            <Button isActive={dateButton === "30 days"} onClick={() => {const date = new Date(); var date2 = new Date(); date2.setDate(date2.getDate() - 30); setDateButton("30 days"); setAnalysisDate({start: date, end: date2}); setUseDate(true)}}>Last 30 days</Button>
+            <Button isActive={dateButton === "All time"} onClick={() => {setDateButton("All time");setUseDate(false)} } >All time</Button>
+            <Popover
+            >
+                <PopoverTrigger>
+                <Button isActive={dateButton === "Custom"} onClick={() => setDateButton("Custom")} >Custom Date</Button>
+                </PopoverTrigger>
+                <Portal>
+                    <PopoverContent>
+                        <PopoverArrow/>
+                        <PopoverCloseButton />
+                        <PopoverBody>
+                            <Button onClick={()=>{setAnalysisDate({start: new Date(), end: null})}}>Reset</Button>
+                            {/* <Button onClick={()=>{setUseRange(!useRange)}}>{useRange ? "Use Single" : "Use Range"}</Button> */}
+                            <DatePicker popperModifiers={[
+        {
+          name: 'arrow',
+          options: { padding: 24 },
+        },
+      ]} placeholderText="Leave Clear for One Date" todayButton="Today" selected={analysisDate.end} onChange={(date) => {setAnalysisDate({...analysisDate, end: date});setUseDate(true)}}/>
+       <DatePicker popperModifiers={[
+        {
+          name: 'arrow',
+          options: { padding: 24 },
+        },
+      ]} todayButton="Today" selected={analysisDate.start} onChange={(date) => {setAnalysisDate({...analysisDate, start: date});setUseDate(true)}}/>
+                    </PopoverBody>
+                    </PopoverContent>
+                </Portal>
+            </Popover>
+            
+            
+            </ButtonGroup>
+            </Box>
+            <Spacer/>
+                <Flex flexDirection={"column"}>
+                <Button isLoading={fetchingData} isDisabled={fetchingData} onClick={getData}> {data.length > 0 ? "Refresh data" : "You Need To Fetch Data"}</Button>
+                <Text>Last Refresh Time: {refreshDate === null ? `${refreshDate}` : `${refreshDate.toLocaleDateString()} ${refreshDate.toLocaleTimeString()}`}</Text>
+            
+                </Flex>
+               
+            
+            
+            
+            </Flex>
+            {/* <Button isDisabled={data.length===0} onClick={()=>{setUseDate(!useDate)}}>{useDate ? "Overview" : "Use Date"}</Button>
+            <DatePicker popperModifiers={[
+        {
+          name: 'arrow',
+          options: { padding: 24 },
+        },
+      ]} todayButton="Today" selected={analysisDate} onChange={(date) => setAnalysisDate(date)} disabled={!useDate}/> */}
+        <Flex flexDirection={"column"} gap={"10px"}>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"8px 16px 16px"}>
+                <Text fontWeight={"600"}>Key chat metrics</Text>
+                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+                <Flex flexDirection={{base: "column", sm: "row"}} gap={"10px"}>
+                <Flex flexDirection={"column"} flex={1} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
+                    <Text color={"#475467"} fontWeight={"500"}>Total chat sessions</Text>
+                    {
+                useDate ? (
+                    <>
+                    {
+                        analysisDate.end !== null ? (
+                            <>
+                            <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{data.filter(user=>{
+                                const d1 = new Date(user.createdAt)
+                                console.log(d1.getTime())
+                                return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime() + 86400000); 
+                            }).length}</Text>
+                            </>
+                        ) : (
+                            <>
+                            <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{data.filter(user=>{
+                                const d1 = new Date(user.createdAt)
+                                return d1.toDateString() === analysisDate.start.toDateString(); 
+                            }).length}</Text>
+                            </>
+                        )
+                    }
+                    </>
+                ) : (
+                    <>
+                        <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{data.length}</Text>
+                    </>
+                )
             }
-                <li>Total - {(excludeNoFeedback ? promptTotal - helpfulCount.find(entry=>entry.name=== "No feedback").value : promptTotal)}</li>
-            </ul>
-            <Button onClick={()=>{setExcludeNoCategory(!excludeNoCategory)}}>{excludeNoCategory ? "Include No Category" : "Exclude No Category"}</Button>
-            <svg ref={categoryRef}/>
-            <Select placeholder='Sort Categories' defaultValue={"value desc"} onChange={(e)=>{setCategorySort(e.target.value)}}>
-                <option value='value desc'>Value - DESC</option>
-                <option value='value asc'>Value - ASC</option>
-                <option value='name desc'>Name - Z-{">"}A</option>
-                <option value='name asc'>Name - A-{">"}Z</option>
-            </Select>
-            <ul>
+                </Flex>
+                <Flex flexDirection={"column"} flex={1} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
+                    <Text color={"#475467"} fontWeight={"500"}>Total prompts</Text>
+                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{promptTotal}</Text>
+                </Flex >
+                <Flex flexDirection={"column"} flex={1} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
+                    <Text color={"#475467"} fontWeight={"500"}>Average conversation length</Text>
+                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{avgConvoLength.toFixed(1)}</Text>
+                </Flex>
+                </Flex>
+            </Box>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
+            <Flex flexDirection={{base:"column", md:"row"}} gap={"5px"}>
+            <Flex  maxW={{base: "unset", md: "50%", lg: "35%"}} width={{base:"100%", md:"50%"}}  flexDirection={"column"}>
+                <Flex flexDirection={"row"} height={"27px"}>
+                <Text fontSize={"18px"} fontWeight={"600"}>In-app user feedback</Text>
+                <Button display={"inline-flex"} size={"sm"} marginLeft={"auto"} marginRight={"5px"} isActive={excludeNoFeedback} width={"fit-content"} onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>Filter</Button>
+                </Flex>
+
+                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+                <Flex justifyContent={"center"} alignItems={"start"}>
+                    <Box minW={"260px"}>
+                     <svg ref={piRef}/>
+
+                    </Box>
+                <Flex flexDirection={"column"}>
+                {
+                    helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)).sort(function(a, b){return b.name-a.name}).map(helpful=>{
+                        return (
+                            <Box key={helpful.name} display={"flex"} flexDirection={"row"} alignItems={"center"}>
+                                <div style={{marginRight: "3px", width: "10px", height: "10px", borderRadius: "10px", background: helpfulColors?.find(val=>val.title===helpful.name)?.fill, display:"inline-block"}}></div>
+                                
+                            {/* {helpful.name} - {helpful.value} ({((helpful.value/(excludeNoFeedback ? promptTotal - helpfulCount.find(entry=>entry.name=== "No feedback").value : promptTotal))*100).toFixed(3)}%) */}
+                            <Text color={"#475467"}>{helpful.name}</Text>
+                            </Box>
+                        )
+                        })
+                }
+            
+
+                </Flex>
+                </Flex>
+
+           
+            </Flex>
+            <Flex flexDirection={"column"} flexGrow={1}>
+                <Text fontSize={"18px"} fontWeight={"600"}>Feedback Breakdown</Text>
+                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+                <Box padding={"10px"}>
+                <Flex flexDirection={{base:"column", lg:"row"}} gap={{base:"5px", lg:"25px"}}>
+                    <Flex onMouseEnter={()=>{
+                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 0.3)
+                        d3.select(piRef.current).selectAll(".arcs-0").attr("opacity", 1)
+                    }} onMouseLeave={()=>{
+                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 1)
+                    }} flexDirection={"column"} padding={"24px"} width={{base:"100%", lg:"50%"}} height={"120px"} background={"#125D56"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
+                    <Text color={"#FFFFFF"} fontWeight={"500"}>Helpful Feedback</Text>
+                    <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "Helpful")?.value || "N/A"}</Text>
+                    </Flex>
+                    <Flex onMouseEnter={()=>{
+                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 0.3)
+                        d3.select(piRef.current).selectAll(".arcs-1").attr("opacity", 1)
+                    }} onMouseLeave={()=>{
+                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 1)
+                    }} flexDirection={"column"} padding={"24px"} width={{base:"100%", lg:"50%"}} height={"120px"} background={"#F04438"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
+                    <Text color={"#FFFFFF"} fontWeight={"500"}>Unhelpful Feedback</Text>
+                    <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "Unhelpful")?.value || "N/A"}</Text>
+                    </Flex>
+                </Flex>
+                <Flex onMouseEnter={()=>{
+                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 0.3)
+                        d3.select(piRef.current).selectAll(".arcs-2").attr("opacity", 1)
+                    }} onMouseLeave={()=>{
+                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 1)
+                    }} flexDirection={"column"} padding={"24px"} marginTop={"5px"} width={"100%"} height={"120px"} background={"#FFFFFF"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
+                    <Text color={"#475467"} fontWeight={"500"}>No Feedback</Text>
+                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "No feedback")?.value || "N/A"}</Text>
+                </Flex>
+                </Box>
+                </Flex>
+            </Flex>
+           
+            
+            </Box>
+        
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+                <Text padding={"10px"} fontWeight={"600"} fontSize={"18px"} color={"#101828"}>Top data sources mentioned in user queries</Text>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <SimpleGrid minChildWidth={{base: "200px", lg: '350px'}} spacing='40px' padding={"20px"}>
+                {
+                    appsSum.sort((a,b)=>b.value-a.value).map((app,i)=>(
+                        <Flex flexDir={"column"} key={i} maxWidth={"400px"}   height={"100%"} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
+                            <Box background={"#F2F4F7"} border={"8px solid #F9FAFB"} borderRadius={"28px"} width={"60px"} height={"60px"} justifyContent={"center"} display={"flex"} padding={"6px"}>
+                                <img src={getAppLogo(app.name).src} alt={`${app.name} Logo`} />
+                            </Box>
+
+                            <Text fontWeight={"400"} color={"#475467"}>User queiries mentioning {app.name}</Text>
+                            <Text fontSize={"24px"} fontWeight={"600"} marginTop={"auto"}>{app.value}</Text>
+                            
+                            
+                        </Flex>
+                    ))
+                }
+            </SimpleGrid>
+            </Box>
+            
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+                <Flex>
+                    <Text as="b" fontSize={"2xl"}>Category</Text>
+                    <Spacer/>
+                    <Button variant={"ghost"} onClick={()=>{setExcludeNoCategory(!excludeNoCategory)}}>{excludeNoCategory ? "Include No Category" : "Exclude No Category"}</Button>
+                </Flex>
+            <Flex flexDirection={{base: "column", md: "row"}} gap={"10px"}>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+
+            <Text fontSize={"18px"} fontWeight={"600"}>Prompt Categories</Text>
+                
+
+
+            {/* Total Prompts: {(excludeNoCategory ? promptTotal - (categoryData.find(entry=>entry.name=== "None") || {value:0}).value : promptTotal)} */}
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <Flex flexDir={"column"} gap={"10px"}>
+
+            
+            <Select width={"unset"} flexGrow={"1"}  placeholder='Sort Categories' defaultValue={"value desc"} onChange={(e)=>{setCategorySort(e.target.value)}}>
+                    <option value='value desc'>Value - DESC</option>
+                    <option value='value asc'>Value - ASC</option>
+                    <option value='name desc'>Name - Z-{">"}A</option>
+                    <option value='name asc'>Name - A-{">"}Z</option>
+                </Select>
+            <SimpleGrid maxH={"500px"} overflowY={"auto"} minChildWidth='120px' spacing='40px' padding={"20px"}>
             {
                 categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).sort(function(a, b){
                     switch(categorySort){
@@ -542,30 +992,69 @@ function App(props) {
                     }
                 }).map(category=>{
                     return (
-                        <li key={category.name}>
-                            {console.log({
-                                category,
-                                excludeNoCategory
-                            })} 
-                        {category.name} - {category.value} ({((category.value/(excludeNoCategory ? promptTotal - categoryData.find(entry=>entry.name=== "None").value : promptTotal))*100).toFixed(3)}%)
+                        <Flex key={category.name} >
+                            <div style={{marginTop: "7px", marginRight: "7px", minWidth: "10px", height: "10px", borderRadius: "10px", background: categoryColors?.find(val=>val.title===category.name)?.fill, display:"inline-block"}}></div>
+                            <Box height={"100%"} display={"flex"} flexDirection={"column"}> 
+                            <Text color={"#475467"}>
+                                {category.name} </Text>
+                            <Text fontSize={"24px"} fontWeight={"600"} marginTop={"auto"}>
+                                {category.value}
+                            </Text>
+                            <Text fontSize={"10px"} fontWeight={"600"}>
+                                {((category.value/(excludeNoCategory ? promptTotal - (categoryData.find(entry=>entry.name=== "None") || {value:0}).value : promptTotal))*100).toFixed(3)}%
+                            </Text>
+                            </Box>
                         
-                        </li>
+                        </Flex>
                     )
                 })
             }
-            <li>Total - {(excludeNoCategory ? promptTotal - categoryData.find(entry=>entry.name=== "None").value : promptTotal)}</li>
-            </ul>
+            </SimpleGrid>
+            </Flex>
+            </Box>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"}>
+            <Text fontSize={"18px"} fontWeight={"600"}>Prompt Categories</Text>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <svg ref={categoryRef}/>
+            </Box>
+            </Flex>
+            </Box>
+            
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+            <Flex flexDirection={"column"}>
+                    <Text fontSize={"2xl"} fontWeight={"600"}>Location</Text>
+                    <Text>World Map of Provided Locations</Text>
+                    </Flex>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
             <Select placeholder='Select option' defaultValue={"world"} onChange={(e)=>{setMapView(e.target.value)}}>
                 <option value='world'>World</option>
                 <option value='US'>US</option>
             </Select>
             <svg ref={worldRef}/>
-            <Button onClick={()=>{setExcludeNoJob(!excludeNoJob)}}>{excludeNoJob ? "Include No Jobs" : "Exclude No Jobs"}</Button>
+            </Box>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+                <Flex flexDirection={"row"}>
+                    <Flex flexDirection={"column"}>
+                    <Text fontSize={"2xl"} fontWeight={"600"}>Jobs</Text>
+                    <Text>Distribution of Jobs</Text>
+                    </Flex>
+                
+                    <Spacer/>
+                    <Button alignSelf={"center"} variant={"ghost"} onClick={()=>{setExcludeNoJob(!excludeNoJob)}}>{excludeNoJob ? "Include No Jobs" : "Exclude No Jobs"}</Button>
+                </Flex>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
             <svg ref={jobRef}/>
+            </Box>
+            
+            
             
             {
                  !useDate && (
                  <>
+                 <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
+                 <Text fontSize={"2xl"} fontWeight={"600"}>Conversations</Text>
+                <Text>Calendar view of conversations and exchange</Text>
+                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
                  <Select placeholder='Select option' defaultValue={"totalConvos"} onChange={(e)=>{setCalView(e.target.value)}}>
                     <option value='totalConvos'>Total Conversations</option>
                     <option value='totalExchanges'>Total Exchanges</option>
@@ -573,9 +1062,14 @@ function App(props) {
                 </Select>
                   <Button onClick={()=>{setCalDifference(!calDifference)}}>{calDifference ? "Show Total" : "Show Difference"}</Button>
                 <svg ref={calRef}/>
+                </Box>
                  </>)
             }
            
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
+            <Text fontSize={"2xl"} fontWeight={"600"}>Chosen Apps</Text>
+            <Text>Distribution of chosen data sources.</Text>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
             <Button isDisabled={chosenAppsData.length===1&&chosenAppsData[0].name==="None"} onClick={()=>{setExcludeNoChosenApps(!excludeNoChosenApps)}}>{excludeNoChosenApps ? "Include No Chosen Apps" : "Exclude No Chosen Apps"}</Button>
             <MultiSelect
                 isMulti
@@ -619,8 +1113,139 @@ function App(props) {
             />
             <Text>E.g. selecting "Transport" with "Facebook" will show the Transport apps that the Facebook users selected</Text>
             <svg ref={chosenAppsRef}/>
+            </Box>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
+            <Text fontSize={"2xl"} fontWeight={"600"}>Explore prompts</Text>
+            <Text>Filter prompts by category, date or search.</Text>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <Box marginBottom={"16px"}>
+                <Box width={"100%"} overflowX={"auto"}>
+                <ButtonGroup variant={"outline"} isAttached>
+                    <Button isActive={promptRange === 0} onClick={()=>{setPromptRange(0)}}>View All</Button>
+                    <Button isActive={promptRange === 1} onClick={()=>{setPromptRange(1);setPromptAnalysisRange({start: new Date(new Date(today).setDate(today.getDate()+1)).getTime(), end: new Date(new Date(today).setDate(today.getDate()-7)).getTime()})}}>Last 7 Days</Button>
+                    <Button isActive={promptRange === 2} onClick={()=>{setPromptRange(2);setPromptAnalysisRange({start: new Date(new Date(today).setDate(today.getDate()+1)).getTime(), end: new Date(new Date(today).setDate(today.getDate()-14)).getTime()})}}>Last 14 Days</Button>
+                    <Button isActive={promptRange === 3} onClick={()=>{setPromptRange(3);setPromptAnalysisRange({start: new Date(new Date(today).setDate(today.getDate()+1)).getTime(), end: new Date(new Date(today).setDate(today.getDate()-30)).getTime()})}}>Last 30 days</Button>
+                </ButtonGroup>
+                </Box>
+                <Input placeholder="Search" value={promptSearch} onChange={(e)=>{setPromptSearch(e.target.value)}}/>
+                <Button onClick={()=>{setShowFilter(!showFilter)}}>Filters</Button>
+                {showFilter && (
+                    <>
+                    <MultiSelect
+                        isMulti
+                        name="apps"
+                        colorScheme="purple"
+                        options={[
+                            {
+                                label: "Feedback",
+                                options: [{
+                                    label: "Helpful",
+                                    value: true
+                                },{
+                                    label: "Unhelpful",
+                                    value: false
+                                },{
+                                    label: "No Feedback",
+                                    value: undefined
+                                },]
+                            }
+                        ]}
+                        placeholder="Show exchanges with the feedback"
+                        onChange={(e)=>{setPromptFeedbackView({...promptFeedbackView, feedback: e.map(o=>o.value)})}}
+                        closeMenuOnSelect={false}
+                    />
+                    <MultiSelect
+                        isMulti
+                        name="apps"
+                        colorScheme="purple"
+                        options={[
+                            {
+                                label: "Categories",
+                                options: categoryData.map(item => ({label: item.name, value: item.name}))
+                            }
+                        ]}
+                        placeholder="Show exchanges with the category"
+                        onChange={(e)=>{setPromptFeedbackView({...promptFeedbackView, category: e.map(o=>o.value)})}}
+                        closeMenuOnSelect={false}
+                    />
+                    <MultiSelect
+                        isMulti
+                        name="apps"
+                        colorScheme="purple"
+                        options={[
+                            {
+                                label: "Jobs",
+                                options: jobs.map(item => ({label: item.name, value: item.name}))
+                            }
+                        ]}
+                        placeholder="Show exchanges from users with this job"
+                        onChange={(e)=>{setPromptFeedbackView({...promptFeedbackView, job: e.map(o=>o.value)})}}
+                        closeMenuOnSelect={false}
+                    />
+                    <MultiSelect
+                        isMulti
+                        name="apps"
+                        colorScheme="purple"
+                        options={[
+                            {
+                                label: "Apps",
+                                options: filterAppsOptions
+                            }
+                        ]}
+                        placeholder="Show exchanges from users using these apps"
+                        onChange={(e)=>{setPromptFeedbackView({...promptFeedbackView, apps:e.map(o=>o.value)})}}
+                        closeMenuOnSelect={false}
+                    />
+                    <Flex>
+                    <MultiSelect
+                        isMulti
+                        name="apps"
+                        colorScheme="purple"
+                        options={[
+                            {
+                                label: "Apps",
+                                options: filterAppsOptions
+                            }
+                        ]}
+                        placeholder="Show exchanges that make use of these apps"
+                        onChange={(e)=>{setPromptFeedbackView({...promptFeedbackView, dataSources:e.map(o=>o.value)})}}
+                        closeMenuOnSelect={false}
+                        chakraStyles={{
+                            container: (base) => ({
+                                ...base,
+                                flexGrow: 1
+                              }),
+                        }}
+                    />
+                    <Button isActive={promptDataSourceViewUnion} onClick={()=>{setPromptDataSourceViewUnion(!promptDataSourceViewUnion)}}>Union</Button>
+                    </Flex>
+                    </>
+                )}
+            </Box>
+                        {console.log(data)}
+            <PaginatedItems items={data.map(user=>{
+                return user.exchanges.map(exchange=>{
+                    var dataSources = []
+                    apps.map(val=>val.name).forEach((value)=>{
+                        if (exchange.prompt.toLowerCase().search(value.toLowerCase())>-1){
+                            dataSources.push(value)
+                        }
+                    })
+                    return {
+                        ...exchange,
+                        country : user.country,
+                        region : user.region,
+                        job : user.job ? user.job.trim().toLowerCase() : "None",
+                        chosenApps : user.chosenApps ? user.chosenApps : [],
+                        dataSources: dataSources
+                    }
+                })
+            }).flat().filter(exchange=>((promptFeedbackView.dataSources.length === 0 ? true : exchange.dataSources.length > 0 ? promptDataSourceViewUnion === true ? promptFeedbackView.dataSources.every(v => exchange.dataSources.includes(v)) : promptFeedbackView.dataSources.some(v => exchange.dataSources.includes(v))  : false)&&(promptFeedbackView.feedback.length === 0 ? true : promptFeedbackView.feedback.includes(exchange.helpful))&&(promptFeedbackView.category.length === 0 ? true : promptFeedbackView.category.includes(exchange.category))&&(promptFeedbackView.job.length === 0 ? true : promptFeedbackView.job.includes(exchange.job))&&(promptFeedbackView.apps.length === 0 ? true : promptFeedbackView.apps.some(r=> exchange.chosenApps.includes(r)))&&(promptSearch === "" ? true : exchange.prompt.toLowerCase().indexOf(promptSearch.toLowerCase()) !== -1)&&(promptRange === 0 ? true : exchange.createdAt > promptAnalysisRange.end && exchange.createdAt < (promptAnalysisRange.start))))}  itemsPerPage={10}/>
+            </Box>
+            </Flex>
+        </Box>        
 
-        </Box>
+        </>
     )
 }
 

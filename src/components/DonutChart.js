@@ -2,7 +2,7 @@ import * as d3 from "d3"
 // Copyright 2021 Observable, Inc.
 // Released under the ISC license.
 // https://observablehq.com/@d3/pie-chart
-export default function PieChart(data, {
+export default function DonutChart(data, {
     name = ([x]) => x,  // given d in data, returns the (ordinal) label
     value = ([, y]) => y, // given d in data, returns the (quantitative) value
     title, // given d in data, returns the title text
@@ -49,7 +49,7 @@ export default function PieChart(data, {
   
     // Construct arcs.
     const arcs = d3.pie().padAngle(padAngle).sort(null).value(i => V[i])(I);
-    const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius);
+    const arc = d3.arc().innerRadius(85).outerRadius(outerRadius);
     const arcLabel = d3.arc().innerRadius(labelRadius).outerRadius(labelRadius);
     
     d3.select(svgRef.current).selectAll("*").remove();
@@ -66,18 +66,8 @@ export default function PieChart(data, {
       .selectAll("path")
       .data(arcs)
       .join("path")
-        .attr("id", "0")
-        .attr("class", d => `arcs arcs-${d.data}`)
         .attr("fill", d => I.length === 1 ? "#4288b5" : color(N[d.data]))
         .attr("d", arc)
-        .on('mouseenter', function (actual, i) {
-          
-          svg.selectAll("g").selectAll("path").attr("opacity", 0.3)
-          d3.select(this).attr("opacity", 1)
-        })
-        .on('mouseleave', function (actual, i) {
-          svg.selectAll("g").selectAll("path").attr("opacity", 1)
-        })
       .append("title")
         .text(d => title(d.data));
   

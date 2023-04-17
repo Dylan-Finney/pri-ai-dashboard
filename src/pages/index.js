@@ -5,7 +5,6 @@ import styles from '@/styles/Home.module.css'
 import App from '@/components/App'
 import { getData } from '@/lib/getData'
 
-const inter = Inter({ subsets: ['latin'] })
 
 export default function Home() {
   return (
@@ -15,6 +14,7 @@ export default function Home() {
         <link rel="icon" href="favicon.ico" />
         <meta name="description" content="The Pri-AI dashboard" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="robots" content="noindex"/>
         
         {/* <link rel="icon" href="/favicon.ico" /> */}
       </Head>
