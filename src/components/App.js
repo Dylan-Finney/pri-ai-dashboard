@@ -223,7 +223,7 @@ function App(props) {
             } else {
                 dataTemp = data.filter(user=>{
                     const d1 = new Date(user.createdAt)
-                    console.log({a: d1.toDateString(), b: analysisDate.start.toDateString()})
+                    // console.log({a: d1.toDateString(), b: analysisDate.start.toDateString()})
                     return d1.toDateString() === analysisDate.start.toDateString(); 
                 })
             }
@@ -247,7 +247,7 @@ function App(props) {
                 var exchangeTemp = exchange
                 switch(exchange.helpful){
                     case true:
-                        console.log(exchange)
+                        // console.log(exchange)
                         helpful[0].value++;
                         break
                     case false:
@@ -370,7 +370,7 @@ function App(props) {
         }
         // console.log("categoryCount",categoryCount)
         // console.log("categoryData",categoryData)
-        console.log(appsSum)
+        // console.log(appsSum)
         calArray.push(calData[calData.length - 1]);
         setCountryUsers(countryData)
         setRegionUsers(regionData)
@@ -403,7 +403,7 @@ function App(props) {
             fill: d3.select(path).attr('fill'),
             title: d3.select(path).select("title").text().split("\n")[0]
           }));
-        console.log("pathData",pathData)
+        // console.log("pathData",pathData)
         setHelpfulColors(pathData)
     }, [helpfulCount, excludeNoFeedback])
 
@@ -422,7 +422,7 @@ function App(props) {
             fill: d3.select(path).attr('fill'),
             title: d3.select(path).select("title").text().split("\n")[0]
           }));
-        console.log(pathData)
+        // console.log(pathData)
         setCategoryColors(pathData)
     }, [categoryData, excludeNoCategory])
     useEffect(()=>{
@@ -534,10 +534,10 @@ function App(props) {
             const sum = jobs.map(job=>!(job.name === "None" && excludeNoJob) && job.frequency).reduce((prev, next) => prev + next)
             var filteredJobs = jobs.filter(entry => !(entry.name === "None" && excludeNoJob)).map((job)=>{
                 var temp = Object.assign({}, job);
+                temp.raw = temp.frequency
                 temp.frequency = temp.frequency/sum
                 return temp;
             })
-            
             
     
             BarChart(filteredJobs, {
@@ -546,10 +546,10 @@ function App(props) {
                 yDomain: d3.groupSort(filteredJobs, ([d]) => -d.frequency, d => d.name), // sort by descending frequency
                 xFormat: "%",
                 xLabel: "Frequency →",
-                width: 640,
+                width: 720,
                 color: "steelblue",
-                marginLeft: 100,
-                marginRight: 20
+                marginLeft: 200,
+                // marginRight: 20
               }, jobRef)
         }
         
@@ -666,22 +666,22 @@ function App(props) {
         // Here we use item offsets; we could also use page offsets
         // following the API or data you're working with.
         const [itemOffset, setItemOffset] = useState(0);
-        console.log(items)
+        // console.log(items)
       
         // Simulate fetching items from another resources.
         // (This could be items from props; or items loaded in a local state
         // from an API endpoint with useEffect and useState)
         const endOffset = itemOffset + itemsPerPage;
-        console.log(`Loading items from ${itemOffset} to ${endOffset}`);
+        // console.log(`Loading items from ${itemOffset} to ${endOffset}`);
         const currentItems = items.slice(itemOffset, endOffset);
         const pageCount = Math.ceil(items.length / itemsPerPage);
       
         // Invoke when user click to request another page.
         const handlePageClick = (event) => {
           const newOffset = (event.selected * itemsPerPage) % items.length;
-          console.log(
-            `User requested page number ${event.selected}, which is offset ${newOffset}`
-          );
+        //   console.log(
+        //     `User requested page number ${event.selected}, which is offset ${newOffset}`
+        //   );
           setItemOffset(newOffset);
         };
       
@@ -813,7 +813,7 @@ function App(props) {
                             <>
                             <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{data.filter(user=>{
                                 const d1 = new Date(user.createdAt)
-                                console.log(d1.getTime())
+                                // console.log(d1.getTime())
                                 return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime() + 86400000); 
                             }).length}</Text>
                             </>
@@ -884,29 +884,29 @@ function App(props) {
                 <Box padding={"10px"}>
                 <Flex flexDirection={{base:"column", lg:"row"}} gap={{base:"5px", lg:"25px"}}>
                     <Flex onMouseEnter={()=>{
-                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 0.3)
-                        d3.select(piRef.current).selectAll(".arcs-0").attr("opacity", 1)
+                        d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 0.3)
+                        d3.select(piRef.current).selectAll(".arcs-0").transition().attr("opacity", 1)
                     }} onMouseLeave={()=>{
-                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 1)
+                        d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                     }} flexDirection={"column"} padding={"24px"} width={{base:"100%", lg:"50%"}} height={"120px"} background={"#125D56"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
                     <Text color={"#FFFFFF"} fontWeight={"500"}>Helpful Feedback</Text>
                     <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "Helpful")?.value || "N/A"}</Text>
                     </Flex>
                     <Flex onMouseEnter={()=>{
-                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 0.3)
-                        d3.select(piRef.current).selectAll(".arcs-1").attr("opacity", 1)
+                        d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 0.3)
+                        d3.select(piRef.current).selectAll(".arcs-1").transition().attr("opacity", 1)
                     }} onMouseLeave={()=>{
-                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 1)
+                        d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                     }} flexDirection={"column"} padding={"24px"} width={{base:"100%", lg:"50%"}} height={"120px"} background={"#F04438"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
                     <Text color={"#FFFFFF"} fontWeight={"500"}>Unhelpful Feedback</Text>
                     <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "Unhelpful")?.value || "N/A"}</Text>
                     </Flex>
                 </Flex>
                 <Flex onMouseEnter={()=>{
-                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 0.3)
-                        d3.select(piRef.current).selectAll(".arcs-2").attr("opacity", 1)
+                        d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 0.3)
+                        d3.select(piRef.current).selectAll(".arcs-2").transition().attr("opacity", 1)
                     }} onMouseLeave={()=>{
-                        d3.select(piRef.current).selectAll(".arcs").attr("opacity", 1)
+                        d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                     }} flexDirection={"column"} padding={"24px"} marginTop={"5px"} width={"100%"} height={"120px"} background={"#FFFFFF"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
                     <Text color={"#475467"} fontWeight={"500"}>No Feedback</Text>
                     <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "No feedback")?.value || "N/A"}</Text>
@@ -990,9 +990,14 @@ function App(props) {
                         default:
                             return null
                     }
-                }).map(category=>{
+                }).map((category,i)=>{
                     return (
-                        <Flex key={category.name} >
+                        <Flex key={category.name} onMouseEnter={()=>{
+                            d3.select(categoryRef.current).selectAll(".arcs").transition().attr("opacity", 0.3)
+                            d3.select(categoryRef.current).selectAll(`.arcs-${categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).findIndex(findCategory=>findCategory.name===category.name)}`).transition().attr("opacity", 1)
+                        }} onMouseLeave={()=>{
+                            d3.select(categoryRef.current).selectAll(".arcs").transition().attr("opacity", 1)
+                        }}>
                             <div style={{marginTop: "7px", marginRight: "7px", minWidth: "10px", height: "10px", borderRadius: "10px", background: categoryColors?.find(val=>val.title===category.name)?.fill, display:"inline-block"}}></div>
                             <Box height={"100%"} display={"flex"} flexDirection={"column"}> 
                             <Text color={"#475467"}>
@@ -1222,7 +1227,7 @@ function App(props) {
                     </>
                 )}
             </Box>
-                        {console.log(data)}
+                        {/* {console.log(data)} */}
             <PaginatedItems items={data.map(user=>{
                 return user.exchanges.map(exchange=>{
                     var dataSources = []

@@ -66,17 +66,17 @@ export default function PieChart(data, {
       .selectAll("path")
       .data(arcs)
       .join("path")
-        .attr("id", "0")
+        .attr("id", d => `${d.data}`)
         .attr("class", d => `arcs arcs-${d.data}`)
         .attr("fill", d => I.length === 1 ? "#4288b5" : color(N[d.data]))
         .attr("d", arc)
         .on('mouseenter', function (actual, i) {
           
-          svg.selectAll("g").selectAll("path").attr("opacity", 0.3)
-          d3.select(this).attr("opacity", 1)
+          svg.selectAll("g").selectAll("path").transition().attr("opacity", 0.3)
+          d3.select(this).transition().attr("opacity", 1)
         })
         .on('mouseleave', function (actual, i) {
-          svg.selectAll("g").selectAll("path").attr("opacity", 1)
+          svg.selectAll("g").selectAll("path").transition().attr("opacity", 1)
         })
       .append("title")
         .text(d => title(d.data));

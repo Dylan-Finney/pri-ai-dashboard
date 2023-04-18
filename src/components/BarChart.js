@@ -27,6 +27,7 @@ export default function BarChart(data, {
     // Compute values.
     const X = d3.map(data, x);
     const Y = d3.map(data, y);
+    const R = d3.map(data, (d) => d.raw);
   
     // Compute default domains, and unique the y-domain.
     if (xDomain === undefined) xDomain = [0, d3.max(X)];
@@ -91,16 +92,18 @@ export default function BarChart(data, {
         .attr("height", yScale.bandwidth())
         .on('mouseenter', function (actual, i) {
           console.log(X[i])
-          svg.selectAll("g").selectAll("rect").attr("opacity", 0.3)
-          svg.selectAll(".value").attr("opacity", (label,index) => label === i ? 1 : 0.7)
-          svg.selectAll(".title").selectAll("text").attr("opacity", (label,index) => Y[i] === label ? 1 :  0.3)
-          d3.select(this).attr("opacity", 1)
+          svg.selectAll("g").selectAll("rect").transition().attr("opacity", 0.3)
+          svg.selectAll(".value").transition().attr("opacity", (label,index) => label === i ? 1 : 0.7).attr("font-weight", (label,index) => label === i ? "bold" :  "normal")
+          svg.selectAll(".title").selectAll("text").transition().attr("opacity", (label,index) => Y[i] === label ? 1 :  0.3).attr("font-weight", (label,index) => Y[i] === label ? "bold" :  "normal")
+          d3.select(this).transition().attr("opacity", 1)
         })
         .on('mouseleave', function (actual, i) {
-          svg.selectAll(".title").selectAll("text").attr("opacity", 1 )
-          svg.selectAll(".value").attr("opacity", 1)
-          svg.selectAll("g").selectAll("rect").attr("opacity", 1)
+          svg.selectAll(".title").selectAll("text").transition().attr("opacity", 1 ).attr("font-weight", "normal")
+          svg.selectAll(".value").attr("opacity", 1).transition().attr("font-weight", "normal")
+          svg.selectAll("g").selectAll("rect").transition().attr("opacity", 1)
         })
+        .append("title")
+          .text((d,i,x) => R[i] ? `${Y[i]} - ${R[i]} (${(X[i]*100).toFixed(2)}%)` : `${Y[i]} - ${(X[i]*100).toFixed(2)}%`);
        
     svg.append("g")
         .attr("fill", titleColor)
