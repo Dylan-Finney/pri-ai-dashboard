@@ -15,8 +15,10 @@ import { Select as MultiSelect } from "chakra-react-select";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import ReactPaginate from 'react-paginate';``
+import { ArrowUpIcon, ArrowDownIcon } from '@chakra-ui/icons'
 
 import { appIcons } from '../assets/apps';
+import CompareBadge from "./compareBadge";
 
 
 function App(props) {
@@ -56,6 +58,7 @@ function App(props) {
     const [promptDataSourceViewUnion, setPromptDataSourceViewUnion] = useState(false)
     const [calData, setCalData] = useState([])
     const [avgConvoLength, setAvgConvoLength] = useState(0)
+    const [convoTotal, setConvoTotal] = useState(0)
     const [countryUsers, setCountryUsers] = useState([])
     const [regionUsers, setRegionUsers] = useState([])
     const [categoryData, setCategoryData] = useState([])
@@ -193,346 +196,423 @@ function App(props) {
         }
       }
     useEffect(()=>{
-        var helpful = [{name: "Helpful", value: 0},{name: "Unhelpful", value: 0},{name: "No feedback", value: 0}]
-        var jobTotal = 0
-        var appTotal = 0
-        var promptTotal = 0
-        var usersAppsAdded = 0
-        var countryCount = {}
-        var regionCount = {}
-        var jobCount = {}
-        var calCount = {}
-        var appCount = {}
-        var categoryCount = {}
-        var categoryData = []
-        var countryData = []
-        var regionData = []
-        var jobData = []
-        var calData = []
-        var appData = []
-        var appsSum = {}
-        var convoLength = 0
-        var promptAppSum = []
-        var dataTemp = data
-        if (useDate){
-            if (analysisDate.end !== null){
-                dataTemp = data.filter(user=>{
-                    const d1 = new Date(user.createdAt)
-                    return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime() + 86400000); 
+        function processData(analysisDate){
+            var helpful = [{name: "Helpful", value: 0},{name: "Unhelpful", value: 0},{name: "No feedback", value: 0}]
+            var jobTotal = 0
+            var convoTotal = 0
+            var appTotal = 0
+            var promptTotal = 0
+            var usersAppsAdded = 0
+            var countryCount = {}
+            var regionCount = {}
+            var jobCount = {}
+            var calCount = {}
+            var appCount = {}
+            var categoryCount = {}
+            var categoryData = []
+            var countryData = []
+            var regionData = []
+            var jobData = []
+            var calData = []
+            var appData = []
+            var appsSum = {}
+            var convoLength = 0
+            var promptAppSum = []
+            var dataTemp = data
+            if (useDate){
+                if (analysisDate.end !== null){
+                    dataTemp = data.filter(user=>{
+                        const d1 = new Date(user.createdAt)
+                        return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime()); 
+                    })
+                } else {
+                    dataTemp = data.filter(user=>{
+                        const d1 = new Date(user.createdAt)
+                        // console.log({a: d1.toDateString(), b: analysisDate.start.toDateString()})
+                        return d1.toDateString() === analysisDate.start.toDateString(); 
+                    })
+                }
+            }
+            var exchanges = []
+            dataTemp.map(user=>{
+                var addApps = false
+                var convoDateObj = new Date(user.createdAt)
+                var dateStr = `${convoDateObj.getUTCFullYear()}-${('0' + (convoDateObj.getMonth()+1)).slice(-2)}-${('0' + convoDateObj.getDate()).slice(-2)}`
+                if (calCount[dateStr] === undefined){
+                    calCount[dateStr] = {
+                        totalConvos: 0,
+                        totalExchanges: 0
+                    }
+                }
+                calCount[dateStr].totalConvos++;
+                // Helpful
+                user.exchanges.map(exchange=>{
+                    promptTotal++;
+                    var dataSources = []
+                    var exchangeTemp = exchange
+                    switch(exchange.helpful){
+                        case true:
+                            // console.log(exchange)
+                            helpful[0].value++;
+                            break
+                        case false:
+                            helpful[1].value++;
+                            break
+                        case null:
+                        default:
+                            helpful[2].value++;
+                            break
+                    }
+                    apps.map(val=>val.name).forEach((value)=>{
+                        if (exchange.prompt.toLowerCase().search(value.toLowerCase())>-1){
+                            if (appsSum[value] === undefined){
+                                appsSum[value] = 0
+                            }
+                            appsSum[value]++
+                            dataSources.push(value)
+                        }
+                    })
+
+                    if (exchange.category === undefined){
+                        if (categoryCount["None"] === undefined){
+                            categoryCount["None"] = 0
+                        }
+                        exchange["category"] = "None"
+                        categoryCount["None"]++
+                    } else {
+                        if (categoryCount[exchange.category] === undefined){
+                            categoryCount[exchange.category] = 0
+                        }
+                        categoryCount[exchange.category]++
+                    }
+                    
+                    exchange["country"] = user.country
+                    exchange["region"] = user.region
+                    exchange["job"] = user.job ? user.job.trim().toLowerCase() : "None"
+                    exchange["chosenApps"] = user.chosenApps ? user.chosenApps : []
+                    exchange["dataSources"] = dataSources
+                    // var exchangeTemp = exchange
+                    exchanges.push(exchangeTemp)
+
+                    
                 })
-            } else {
-                dataTemp = data.filter(user=>{
-                    const d1 = new Date(user.createdAt)
-                    // console.log({a: d1.toDateString(), b: analysisDate.start.toDateString()})
-                    return d1.toDateString() === analysisDate.start.toDateString(); 
+                user.chosenApps.forEach(element => {
+                    if (appCount[element] === undefined){
+                        appCount[element] = 0
+                    }
+                    appCount[element]++;
+                    appTotal++;
+                    if (!addApps){
+                        usersAppsAdded++
+                        addApps = true
+                    }
+                });
+                
+                calCount[dateStr].totalExchanges+=user.exchanges.length
+                convoLength+=user.exchanges.length
+                convoTotal++
+                //Country Count
+                if (countryCount[user.country] === undefined){
+                    countryCount[user.country] = 0
+                    regionCount[user.country] = {}
+                    regionCount[user.country][user.region] = 0
+                } else if (regionCount[user.country][user.region] === undefined) {
+                    regionCount[user.country][user.region] = 0
+                }
+                const job = user.job ? user.job.trim().toLowerCase() : "None"
+                if (jobCount[job] === undefined){
+                    jobCount[job] = 0
+                }
+                countryCount[user.country]++;
+                regionCount[user.country][user.region]++;
+                jobCount[job]++;
+                jobTotal++
+            })
+            Object.keys(countryCount).map((country)=>{
+                countryData.push({name: rename.get(country) || country, users: countryCount[country]})
+                if (regionData[country] === undefined){
+                    regionData[country] = []
+                }
+                Object.keys(regionCount[country]).map((region)=>{
+                    regionData.push({name: region, users: regionCount[country][region]})
                 })
+            })
+            Object.keys(jobCount).map((job)=>{
+                jobData.push({name: job, frequency: jobCount[job]})
+            })
+            Object.keys(calCount).map((calDate)=>{
+                calData.push({date: new Date(calDate), avgExchanges: calCount[calDate].totalExchanges/calCount[calDate].totalConvos,...calCount[calDate]})
+            })
+            Object.keys(appCount).map((app)=>{
+                appData.push({name: app, frequency: appCount[app]/usersAppsAdded})
+            })
+            Object.keys(categoryCount).map((category)=>{
+                categoryData.push({name: category, value: categoryCount[category]})
+            })
+            Object.keys(appsSum).map((app)=>{
+                promptAppSum.push({name: app, value: appsSum[app]})
+            })
+
+            calData = calData.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                return dateA - dateB;
+            });
+            var calArray = [];
+
+            for (let i = 0; i < calData.length - 1; i++) {
+                const currentDate = new Date(calData[i].date);
+                const nextDate = new Date(calData[i+1].date);
+
+                const daysBetween = Math.floor((nextDate - currentDate) / (1000 * 60 * 60 * 24));
+
+                calArray.push(calData[i]);
+
+                for (let j = 1; j < daysBetween; j++) {
+                    const newDate = new Date(currentDate.getTime() + j * (1000 * 60 * 60 * 24));
+                    const newObject = { date: newDate, avgExchanges: 0, totalConvos: 0, totalExchanges:0 }; // create new object with date string in "YYYY-MM-DD" format
+                    calArray.push(newObject);
+                }
+            }
+            calArray.push(calData[calData.length - 1]);
+            return {
+                countryData,
+                regionData,
+                helpful,
+                jobData,
+                "avgConvoLength": convoLength/dataTemp.length,
+                convoLength,
+                calArray,
+                promptTotal,
+                appData,
+                categoryData,
+                exchanges,
+                promptAppSum,
+                convoTotal
+
+
             }
         }
-        var exchanges = []
-        dataTemp.map(user=>{
-            var addApps = false
-            var convoDateObj = new Date(user.createdAt)
-            var dateStr = `${convoDateObj.getUTCFullYear()}-${('0' + (convoDateObj.getMonth()+1)).slice(-2)}-${('0' + convoDateObj.getDate()).slice(-2)}`
-            if (calCount[dateStr] === undefined){
-                calCount[dateStr] = {
-                    totalConvos: 0,
-                    totalExchanges: 0
-                }
+        if (useDate && dateButton !== "Custom"){
+            const processedData = processData(analysisDate)
+            var processedData2
+            var analysisDate2 = {}
+            analysisDate2.start = new Date(analysisDate.start)
+            analysisDate2.end = new Date(analysisDate.end)
+            console.log("",analysisDate2)
+            console.log(analysisDate.end.getTime())
+            switch(dateButton){
+                case "7 days":
+                    analysisDate2.start = new Date(analysisDate2.start.setDate(analysisDate2.start.getDate()-7))
+                    analysisDate2.end = new Date(analysisDate2.end.setDate(analysisDate2.end.getDate()-7))
+                    processedData2 = processData(analysisDate2)
+                    break
+                case "14 days":
+                    analysisDate2.start = new Date(analysisDate2.start.setDate(analysisDate2.start.getDate()-14))
+                    analysisDate2.end = new Date(analysisDate2.end.setDate(analysisDate2.end.getDate()-14))
+                    processedData2 = processData(analysisDate2)
+                    break
+                case "30 days":
+                    analysisDate2.start = new Date(analysisDate2.start.setDate(analysisDate2.start.getDate()-30))
+                    analysisDate2.end = new Date(analysisDate2.end.setDate(analysisDate2.end.getDate()-30))
+                    processedData2 = processData(analysisDate2)
+                    break
+
             }
-            calCount[dateStr].totalConvos++;
-            // Helpful
-            user.exchanges.map(exchange=>{
-                promptTotal++;
-                var dataSources = []
-                var exchangeTemp = exchange
-                switch(exchange.helpful){
-                    case true:
-                        // console.log(exchange)
-                        helpful[0].value++;
-                        break
-                    case false:
-                        helpful[1].value++;
-                        break
-                    case null:
-                    default:
-                        helpful[2].value++;
-                        break
-                }
-                apps.map(val=>val.name).forEach((value)=>{
-                    if (exchange.prompt.toLowerCase().search(value.toLowerCase())>-1){
-                        if (appsSum[value] === undefined){
-                            appsSum[value] = 0
-                        }
-                        appsSum[value]++
-                        dataSources.push(value)
-                    }
-                })
-
-                if (exchange.category === undefined){
-                    if (categoryCount["None"] === undefined){
-                        categoryCount["None"] = 0
-                    }
-                    exchange["category"] = "None"
-                    categoryCount["None"]++
-                } else {
-                    if (categoryCount[exchange.category] === undefined){
-                        categoryCount[exchange.category] = 0
-                    }
-                    categoryCount[exchange.category]++
-                }
-                
-                exchange["country"] = user.country
-                exchange["region"] = user.region
-                exchange["job"] = user.job ? user.job.trim().toLowerCase() : "None"
-                exchange["chosenApps"] = user.chosenApps ? user.chosenApps : []
-                exchange["dataSources"] = dataSources
-                // var exchangeTemp = exchange
-                exchanges.push(exchangeTemp)
-
-                
-            })
-            user.chosenApps.forEach(element => {
-                if (appCount[element] === undefined){
-                    appCount[element] = 0
-                }
-                appCount[element]++;
-                appTotal++;
-                if (!addApps){
-                    usersAppsAdded++
-                    addApps = true
-                }
-            });
-            
-            calCount[dateStr].totalExchanges+=user.exchanges.length
-            convoLength+=user.exchanges.length
-            //Country Count
-            if (countryCount[user.country] === undefined){
-                countryCount[user.country] = 0
-                regionCount[user.country] = {}
-                regionCount[user.country][user.region] = 0
-            } else if (regionCount[user.country][user.region] === undefined) {
-                regionCount[user.country][user.region] = 0
-            }
-            const job = user.job ? user.job.trim().toLowerCase() : "None"
-            if (jobCount[job] === undefined){
-                jobCount[job] = 0
-            }
-            countryCount[user.country]++;
-            regionCount[user.country][user.region]++;
-            jobCount[job]++;
-            jobTotal++
-        })
-        Object.keys(countryCount).map((country)=>{
-            countryData.push({name: rename.get(country) || country, users: countryCount[country]})
-            if (regionData[country] === undefined){
-                regionData[country] = []
-            }
-            Object.keys(regionCount[country]).map((region)=>{
-                regionData.push({name: region, users: regionCount[country][region]})
-            })
-        })
-        Object.keys(jobCount).map((job)=>{
-            jobData.push({name: job, frequency: jobCount[job]})
-        })
-        Object.keys(calCount).map((calDate)=>{
-            calData.push({date: new Date(calDate), avgExchanges: calCount[calDate].totalExchanges/calCount[calDate].totalConvos,...calCount[calDate]})
-        })
-        Object.keys(appCount).map((app)=>{
-            appData.push({name: app, frequency: appCount[app]/usersAppsAdded})
-        })
-        Object.keys(categoryCount).map((category)=>{
-            categoryData.push({name: category, value: categoryCount[category]})
-        })
-        Object.keys(appsSum).map((app)=>{
-            promptAppSum.push({name: app, value: appsSum[app]})
-        })
-
-        calData = calData.sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            return dateA - dateB;
-        });
-        var calArray = [];
-
-        for (let i = 0; i < calData.length - 1; i++) {
-            const currentDate = new Date(calData[i].date);
-            const nextDate = new Date(calData[i+1].date);
-
-            const daysBetween = Math.floor((nextDate - currentDate) / (1000 * 60 * 60 * 24));
-
-            calArray.push(calData[i]);
-
-            for (let j = 1; j < daysBetween; j++) {
-                const newDate = new Date(currentDate.getTime() + j * (1000 * 60 * 60 * 24));
-                const newObject = { date: newDate, avgExchanges: 0, totalConvos: 0, totalExchanges:0 }; // create new object with date string in "YYYY-MM-DD" format
-                calArray.push(newObject);
-            }
+            setCountryUsers({current: processedData.countryData, prev: processedData2.countryData})
+            setRegionUsers({current: processedData.regionData, prev: processedData2.regionData})
+            setHelpfulCount({current: processedData.helpful, prev: processedData2.helpful})
+            setJobs({current: processedData.jobData, prev: processedData2.jobData})
+            setAvgConvoLength({current: processedData.avgConvoLength, prev: processedData2.avgConvoLength})
+            setCalData({current: processedData.calArray, prev: processedData2.calArray})
+            setPromptTotal({current: processedData.promptTotal, prev: processedData2.promptTotal})
+            setConvoTotal({current: processedData.convoTotal, prev: processedData2.convoTotal})
+            setChosenAppsData({current: processedData.appData, prev: processedData2.appData})
+            setCategoryData({current: processedData.categoryData, prev: processedData2.categoryData})
+            setExcludeNoChosenApps(true)
+            setAllExchanges({current: processedData.exchanges, prev: processedData2.exchanges})
+            setAppsSum({current: processedData.promptAppSum, prev: processedData2.promptAppSum})
+            // console.log(calArray)
+        } else {
+            const processedData = processData(analysisDate)
+            setCountryUsers({current: processedData.countryData, prev: null})
+            setRegionUsers({current: processedData.regionData, prev: null})
+            setHelpfulCount({current: processedData.helpful, prev: null})
+            setJobs({current: processedData.jobData, prev: null})
+            setAvgConvoLength({current: processedData.avgConvoLength, prev: null})
+            // console.log(calArray)
+            setCalData({current: processedData.calArray, prev: null})
+            setPromptTotal({current: processedData.promptTotal, prev: null})
+            setChosenAppsData({current: processedData.appData, prev: null})
+            setCategoryData({current: processedData.categoryData, prev: null})
+            setExcludeNoChosenApps(true)
+            setAllExchanges({current: processedData.exchanges, prev: null})
+            setAppsSum({current: processedData.promptAppSum, prev: null})
         }
         // console.log("categoryCount",categoryCount)
         // console.log("categoryData",categoryData)
         // console.log(appsSum)
-        calArray.push(calData[calData.length - 1]);
-        setCountryUsers(countryData)
-        setRegionUsers(regionData)
-        setHelpfulCount(helpful)
-        setJobs(jobData)
-        setAvgConvoLength(convoLength/dataTemp.length)
-        // console.log(calArray)
-        setCalData(calArray)
-        setPromptTotal(promptTotal)
-        setChosenAppsData(appData)
-        setCategoryData(categoryData)
-        setExcludeNoChosenApps(true)
-        setAllExchanges(exchanges)
-        setAppsSum(promptAppSum)
+        
+        
     },[data, useDate, analysisDate])
 
     useEffect(()=>{
         var width = 260
         var height = 260
-        PieChart(helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)),{
-            name: d => d.name,
-            value: d => d.value,
-            width,
-            height,
-            innerRadius: width * 0.32
-        }, piRef)
-        // Get Fill values from d3
-        var paths = d3.select(piRef.current).selectChild("g").selectChildren("path")
-        const pathData = paths.nodes().map(path => ({
-            fill: d3.select(path).attr('fill'),
-            title: d3.select(path).select("title").text().split("\n")[0]
-          }));
-        // console.log("pathData",pathData)
-        setHelpfulColors(pathData)
+        if (helpfulCount.current){
+            PieChart(helpfulCount.current?.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)),{
+                name: d => d.name,
+                value: d => d.value,
+                width,
+                height,
+                innerRadius: width * 0.32
+            }, piRef)
+            // Get Fill values from d3
+            var paths = d3.select(piRef.current).selectChild("g").selectChildren("path")
+            const pathData = paths.nodes().map(path => ({
+                fill: d3.select(path).attr('fill'),
+                title: d3.select(path).select("title").text().split("\n")[0]
+              }));
+            // console.log("pathData",pathData)
+            setHelpfulColors(pathData)
+        }
     }, [helpfulCount, excludeNoFeedback])
 
     useEffect(()=>{
         var width = 400
         var height = 400
-        PieChart(categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)),{
-            name: d => d.name,
-            value: d => d.value,
-            width: width,
-            height: height,
-            innerRadius: width * 0.32
-        }, categoryRef)
-        var paths = d3.select(categoryRef.current).selectChild("g").selectChildren("path")
-        const pathData = paths.nodes().map(path => ({
-            fill: d3.select(path).attr('fill'),
-            title: d3.select(path).select("title").text().split("\n")[0]
-          }));
-        // console.log(pathData)
-        setCategoryColors(pathData)
+        if (categoryData.current){
+            PieChart(categoryData.current?.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)),{
+                name: d => d.name,
+                value: d => d.value,
+                width: width,
+                height: height,
+                innerRadius: width * 0.32
+            }, categoryRef)
+            var paths = d3.select(categoryRef.current).selectChild("g").selectChildren("path")
+            const pathData = paths.nodes().map(path => ({
+                fill: d3.select(path).attr('fill'),
+                title: d3.select(path).select("title").text().split("\n")[0]
+              }));
+            // console.log(pathData)
+            setCategoryColors(pathData)
+        }
+        
     }, [categoryData, excludeNoCategory])
     useEffect(()=>{
         // console.log(calData)
         // console.log(calDifference)
-        if (calData[0] !== undefined && !useDate){
-            switch(calDifference){
-                case true:
-                    switch(calView){
-                        case "totalExchanges":
-                            Calendar(calData, {
-                                x: d => d.date,
-                                y: (d, i, data) => i > 0 ? (d.totalExchanges - data[i - 1].totalExchanges) / data[i - 1].totalExchanges : NaN,
-                                yFormat: "+%",
-                                weekday: "monday",
-                                width: 630
-                              }, calRef)
-                            break
-                        case "avgExchanges":
-                            Calendar(calData, {
-                                x: d => d.date,
-                                y: (d, i, data) => i > 0 ? (d.avgExchanges - data[i - 1].avgExchanges) / data[i - 1].avgExchanges : NaN,
-                                yFormat: "+%",
-                                weekday: "monday",
-                                width: 630
-                                }, calRef)
-                            break
-                        case "totalConvos":
-                            Calendar(calData, {
-                                x: d => d.date,
-                                y: (d, i, data) => i > 0 ? (d.totalConvos - data[i - 1].totalConvos) / data[i - 1].totalConvos : NaN,
-                                yFormat: "+%",
-                                weekday: "monday",
-                                width: 630
-                              }, calRef)
-                            break
-                    }  
-                    break
-                case false:
-                    switch(calView){
-                        case "totalExchanges":
-                            Calendar(calData, {
-                                x: d => d.date,
-                                y: d => d.totalExchanges,
-                                weekday: "monday",
-                                width: 630
-                              }, calRef)
-                            break
-                        case "avgExchanges":
-                            Calendar(calData, {
-                                x: d => d.date,
-                                y: d => d.avgExchanges,
-                                weekday: "monday",
-                                width: 630
-                                }, calRef)
-                            break
-                        case "totalConvos":
-                            Calendar(calData, {
-                                x: d => d.date,
-                                y: d => d.totalConvos,
-                                weekday: "monday",
-                                width: 630
-                              }, calRef)
-                            break
-                    }  
-                    break
+        if (calData.current){
+            if (calData.current[0] !== undefined && !useDate){
+                switch(calDifference){
+                    case true:
+                        switch(calView){
+                            case "totalExchanges":
+                                Calendar(calData.current, {
+                                    x: d => d.date,
+                                    y: (d, i, data) => i > 0 ? (d.totalExchanges - data[i - 1].totalExchanges) / data[i - 1].totalExchanges : NaN,
+                                    yFormat: "+%",
+                                    weekday: "monday",
+                                    width: 630
+                                  }, calRef)
+                                break
+                            case "avgExchanges":
+                                Calendar(calData.current, {
+                                    x: d => d.date,
+                                    y: (d, i, data) => i > 0 ? (d.avgExchanges - data[i - 1].avgExchanges) / data[i - 1].avgExchanges : NaN,
+                                    yFormat: "+%",
+                                    weekday: "monday",
+                                    width: 630
+                                    }, calRef)
+                                break
+                            case "totalConvos":
+                                Calendar(calData.current, {
+                                    x: d => d.date,
+                                    y: (d, i, data) => i > 0 ? (d.totalConvos - data[i - 1].totalConvos) / data[i - 1].totalConvos : NaN,
+                                    yFormat: "+%",
+                                    weekday: "monday",
+                                    width: 630
+                                  }, calRef)
+                                break
+                        }  
+                        break
+                    case false:
+                        switch(calView){
+                            case "totalExchanges":
+                                Calendar(calData.current, {
+                                    x: d => d.date,
+                                    y: d => d.totalExchanges,
+                                    weekday: "monday",
+                                    width: 630
+                                  }, calRef)
+                                break
+                            case "avgExchanges":
+                                Calendar(calData.current, {
+                                    x: d => d.date,
+                                    y: d => d.avgExchanges,
+                                    weekday: "monday",
+                                    width: 630
+                                    }, calRef)
+                                break
+                            case "totalConvos":
+                                Calendar(calData.current, {
+                                    x: d => d.date,
+                                    y: d => d.totalConvos,
+                                    weekday: "monday",
+                                    width: 630
+                                  }, calRef)
+                                break
+                        }  
+                        break
+                }
             }
         }
+        
         
     }, [calData, calView, calDifference])
     
     useEffect(()=>{
-        switch(mapView){
-            case "world":
-                Choropleth(countryUsers, {
-                    id: d => d.name, // country name, e.g. Zimbabwe
-                    value: d => d.users, // health-adjusted life expectancy
-                    range: d3.interpolateYlGnBu,
-                    features: countries,
-                    featureId: d => d.properties.name, // i.e., not ISO 3166-1 numeric
-                    borders: countrymesh,
-                    projection: d3.geoEqualEarth(),
-                    width: 640
-                  },worldRef)
-                break
-            case "US":
-                Choropleth(regionUsers, {
-                    features: states,
-                    borders: statemesh,
-                    width : 975,
-                    height:  610,
-                    id: d => namemap.get(d.name),
-                    value: d => d.users,
-                    scale: d3.scaleQuantize,
-                    domain: [1, 7],
-                    range: d3.schemeBlues[6],
-                },worldRef)
-                break
+        if (countryUsers.current){
+            switch(mapView){
+                case "world":
+                    Choropleth(countryUsers.current, {
+                        id: d => d.name, // country name, e.g. Zimbabwe
+                        value: d => d.users, // health-adjusted life expectancy
+                        range: d3.interpolateYlGnBu,
+                        features: countries,
+                        featureId: d => d.properties.name, // i.e., not ISO 3166-1 numeric
+                        borders: countrymesh,
+                        projection: d3.geoEqualEarth(),
+                        width: 640
+                      },worldRef)
+                    break
+                case "US":
+                    Choropleth(regionUsers.current, {
+                        features: states,
+                        borders: statemesh,
+                        width : 975,
+                        height:  610,
+                        id: d => namemap.get(d.name),
+                        value: d => d.users,
+                        scale: d3.scaleQuantize,
+                        domain: [1, 7],
+                        range: d3.schemeBlues[6],
+                    },worldRef)
+                    break
+            }
         }
+        
         
     }, [countryUsers, mapView])
     useEffect(()=>{
 
-        if (jobs.length>0){
+        if (jobs.current?.length>0){
             var filteredJobs = [{
                 name: "test",
                 frequency: 1
             }]
-            const sum = jobs.map(job=>!(job.name === "None" && excludeNoJob) && job.frequency).reduce((prev, next) => prev + next)
-            var filteredJobs = jobs.filter(entry => !(entry.name === "None" && excludeNoJob)).map((job)=>{
+            const sum = jobs.current?.map(job=>!(job.name === "None" && excludeNoJob) && job.frequency).reduce((prev, next) => prev + next)
+            var filteredJobs = jobs.current?.filter(entry => !(entry.name === "None" && excludeNoJob)).map((job)=>{
                 var temp = Object.assign({}, job);
                 temp.raw = temp.frequency
                 temp.frequency = temp.frequency/sum
@@ -555,17 +635,20 @@ function App(props) {
         
     }, [jobs,excludeNoJob])
     useEffect(()=>{
-        BarChart(chosenAppsData, {
-            x: d => d.frequency,
-            y: d => d.name,
-            yDomain: d3.groupSort(chosenAppsData, ([d]) => -d.frequency, d => d.name), // sort by descending frequency
-            xFormat: "%",
-            xLabel: "Frequency →",
-            width: 640,
-            color: "steelblue",
-            marginLeft: 100,
-            marginRight: 20
-          }, chosenAppsRef)
+        if (chosenAppsData.current){
+            BarChart(chosenAppsData.current, {
+                x: d => d.frequency,
+                y: d => d.name,
+                yDomain: d3.groupSort(chosenAppsData.current, ([d]) => -d.frequency, d => d.name), // sort by descending frequency
+                xFormat: "%",
+                xLabel: "Frequency →",
+                width: 640,
+                color: "steelblue",
+                marginLeft: 100,
+                marginRight: 20
+              }, chosenAppsRef)
+        }
+        
     }, [chosenAppsData])
 
     useEffect(()=>{
@@ -636,7 +719,7 @@ function App(props) {
         if (!excludeNoChosenApps && chosenAppsFilter.tags.length === 0){
             appData.push({name: "None", frequency: (data.length - usersIncluded)/data.length})
         }
-        setChosenAppsData(appData)
+        setChosenAppsData({current: appData, prev: null})
     }, [chosenAppsFilter, excludeNoChosenApps, analysisDate, useDate])
 
     function Items({ currentItems }) {
@@ -734,8 +817,29 @@ function App(props) {
         setAnalysisDate(date);
       }
 
+    function showTimeFrame(timeFrame){
+        switch(timeFrame){
+            case "7 days":
+            case 1:
+                return "Last 7 Days"
+            case "14 days":
+            case 2:
+                return "Last 14 Days"
+            case "30 days":
+            case 3:
+                return "Last 30 Days"
+            case "All time":
+            case 0:
+                return "All"
+            case "Custom":
+                return "Custom Timeframe"
+            default:
+                return ""
+        }
+    }
+
     return (
-        <>
+        <Box width={"100vw"} height={"100vh"}>
         <Box height={"111px"} background={"linear-gradient(26.57deg, #125D56 8.33%, #107569 91.67%)"}>
             <Text display={{base: "none", md: "block"}} color={"#FFFFFF"} marginLeft={"30px"} paddingTop={"25px"} fontSize={"30px"} fontWeight={"600"}>Prifina Intelligence dashboard - Pri-AI Users</Text>
             <Text display={{base: "block", md: "none"}} color={"#FFFFFF"} marginLeft={"30px"} paddingTop={"25px"} fontSize={"30px"} fontWeight={"600"}>Pri-AI Dashboard</Text>
@@ -744,9 +848,36 @@ function App(props) {
             <Flex width={"100%"} flexDirection={{base :"column", lg: "row"}}>
             <Box width={"100%"} overflowX={"auto"}>
             <ButtonGroup isDisabled={data.length===0} isAttached variant={"outline"}>
-            <Button isActive={dateButton === "7 days"} onClick={() => {const date = new Date(); var date2 = new Date(); date2.setDate(date2.getDate() - 7); setDateButton("7 days"); setAnalysisDate({start: date, end: date2}); setUseDate(true)}} >Last 7 days</Button>
-            <Button isActive={dateButton === "14 days"} onClick={() => {const date = new Date(); var date2 = new Date(); date2.setDate(date2.getDate() - 14); setDateButton("14 days"); setAnalysisDate({start: date, end: date2}); setUseDate(true)}} >Last 14 days</Button>
-            <Button isActive={dateButton === "30 days"} onClick={() => {const date = new Date(); var date2 = new Date(); date2.setDate(date2.getDate() - 30); setDateButton("30 days"); setAnalysisDate({start: date, end: date2}); setUseDate(true)}}>Last 30 days</Button>
+            <Button isActive={dateButton === "7 days"} onClick={() => {
+                var d = new Date();
+                d.setHours(24,0,0,0);
+                const date = new Date(d); 
+                var date2 = new Date(d); 
+                date2.setDate(date2.getDate() - 7); 
+                setDateButton("7 days"); 
+                setAnalysisDate({start: new Date(date), end: new Date(date2)}); 
+                setUseDate(true)
+                }} >Last 7 days</Button>
+            <Button isActive={dateButton === "14 days"} onClick={() => {
+                var d = new Date();
+                d.setHours(24,0,0,0);
+                const date = new Date(d); 
+                var date2 = new Date(d); 
+                date2.setDate(date2.getDate() - 14); 
+                setDateButton("14 days"); 
+                setAnalysisDate({start: date, end: date2}); 
+                setUseDate(true)
+                }} >Last 14 days</Button>
+            <Button isActive={dateButton === "30 days"} onClick={() => {
+                var d = new Date();
+                d.setHours(24,0,0,0);
+                const date = new Date(d); 
+                var date2 = new Date(d); 
+                date2.setDate(date2.getDate() - 30); 
+                setDateButton("30 days"); 
+                setAnalysisDate({start: date, end: date2}); 
+                setUseDate(true)
+                }} >Last 30 days</Button>
             <Button isActive={dateButton === "All time"} onClick={() => {setDateButton("All time");setUseDate(false)} } >All time</Button>
             <Popover
             >
@@ -800,7 +931,7 @@ function App(props) {
       ]} todayButton="Today" selected={analysisDate} onChange={(date) => setAnalysisDate(date)} disabled={!useDate}/> */}
         <Flex flexDirection={"column"} gap={"10px"}>
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"8px 16px 16px"}>
-                <Text fontWeight={"600"}>Key chat metrics</Text>
+                <Text fontWeight={"600"}>Key chat metrics <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
                 <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
                 <Flex flexDirection={{base: "column", sm: "row"}} gap={"10px"}>
                 <Flex flexDirection={"column"} flex={1} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
@@ -810,13 +941,10 @@ function App(props) {
                     <>
                     {
                         analysisDate.end !== null ? (
-                            <>
-                            <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{data.filter(user=>{
-                                const d1 = new Date(user.createdAt)
-                                // console.log(d1.getTime())
-                                return d1.getTime() > analysisDate.end.getTime() && d1.getTime() < (analysisDate.start.getTime() + 86400000); 
-                            }).length}</Text>
-                            </>
+                            <Flex>
+                            <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{convoTotal.current}</Text>
+                            <CompareBadge current={convoTotal.current} prev={convoTotal.prev} />
+                            </Flex>
                         ) : (
                             <>
                             <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{data.filter(user=>{
@@ -836,21 +964,32 @@ function App(props) {
                 </Flex>
                 <Flex flexDirection={"column"} flex={1} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
                     <Text color={"#475467"} fontWeight={"500"}>Total prompts</Text>
-                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{promptTotal}</Text>
+                    <Flex>
+                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{promptTotal.current}</Text>
+                    <CompareBadge current={promptTotal.current} prev={promptTotal.prev} />
+                    </Flex>
                 </Flex >
                 <Flex flexDirection={"column"} flex={1} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
                     <Text color={"#475467"} fontWeight={"500"}>Average conversation length</Text>
-                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{avgConvoLength.toFixed(1)}</Text>
+                    <Flex>
+                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{avgConvoLength.current?.toFixed(1)}</Text>
+                    <CompareBadge current={avgConvoLength.current} prev={avgConvoLength.prev} />
+                    </Flex>
+
+
                 </Flex>
                 </Flex>
             </Box>
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
             <Flex flexDirection={{base:"column", md:"row"}} gap={"5px"}>
+            <Flex flexDirection={"column"} width={"100%"}>
+            <Flex flexDirection={{base:"column", md:"row"}} height={"27px"}>
+                <Text fontSize={"18px"} fontWeight={"600"}>In-app user feedback <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
+                <Button variant={"ghost"} display={"inline-flex"} size={"sm"} marginLeft={{base: "0px", md: "auto"}} marginRight={"5px"} width={"fit-content"} onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>{excludeNoFeedback ? `Include "No Feedback"` : `Exclude "No Feedback"`}</Button>
+            </Flex>
+            <Flex flexDirection={{base:"column", md:"row"}} width={"100%"}>
             <Flex  maxW={{base: "unset", md: "50%", lg: "35%"}} width={{base:"100%", md:"50%"}}  flexDirection={"column"}>
-                <Flex flexDirection={"row"} height={"27px"}>
-                <Text fontSize={"18px"} fontWeight={"600"}>In-app user feedback</Text>
-                <Button display={"inline-flex"} size={"sm"} marginLeft={"auto"} marginRight={"5px"} isActive={excludeNoFeedback} width={"fit-content"} onClick={()=>{setExcludeNoFeedback(!excludeNoFeedback)}}>Filter</Button>
-                </Flex>
+                
 
                 <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
                 <Flex justifyContent={"center"} alignItems={"start"}>
@@ -860,7 +999,7 @@ function App(props) {
                     </Box>
                 <Flex flexDirection={"column"}>
                 {
-                    helpfulCount.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)).sort(function(a, b){return b.name-a.name}).map(helpful=>{
+                    helpfulCount.current?.filter(entry => entry.value > 0 && !(entry.name === "No feedback" && excludeNoFeedback)).sort(function(a, b){return b.name-a.name}).map(helpful=>{
                         return (
                             <Box key={helpful.name} display={"flex"} flexDirection={"row"} alignItems={"center"}>
                                 <div style={{marginRight: "3px", width: "10px", height: "10px", borderRadius: "10px", background: helpfulColors?.find(val=>val.title===helpful.name)?.fill, display:"inline-block"}}></div>
@@ -879,7 +1018,6 @@ function App(props) {
            
             </Flex>
             <Flex flexDirection={"column"} flexGrow={1}>
-                <Text fontSize={"18px"} fontWeight={"600"}>Feedback Breakdown</Text>
                 <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
                 <Box padding={"10px"}>
                 <Flex flexDirection={{base:"column", lg:"row"}} gap={{base:"5px", lg:"25px"}}>
@@ -890,7 +1028,10 @@ function App(props) {
                         d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                     }} flexDirection={"column"} padding={"24px"} width={{base:"100%", lg:"50%"}} height={"120px"} background={"#125D56"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
                     <Text color={"#FFFFFF"} fontWeight={"500"}>Helpful Feedback</Text>
-                    <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "Helpful")?.value || "N/A"}</Text>
+                    <Flex>
+                    <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.current?.find(helpful=>helpful.name === "Helpful")?.value || "N/A"}</Text>
+                    <CompareBadge current={helpfulCount.current ? helpfulCount.current.find(helpful=>helpful.name === "Helpful")?.value || 0 : null} prev={helpfulCount.prev ? helpfulCount.prev.find(helpful=>helpful.name === "Helpful")?.value || 0 : null} />
+                    </Flex>
                     </Flex>
                     <Flex onMouseEnter={()=>{
                         d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 0.3)
@@ -899,7 +1040,10 @@ function App(props) {
                         d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                     }} flexDirection={"column"} padding={"24px"} width={{base:"100%", lg:"50%"}} height={"120px"} background={"#F04438"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
                     <Text color={"#FFFFFF"} fontWeight={"500"}>Unhelpful Feedback</Text>
-                    <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "Unhelpful")?.value || "N/A"}</Text>
+                    <Flex>
+                    <Text color={"#FFFFFF"} fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.current?.find(helpful=>helpful.name === "Unhelpful")?.value || "N/A"}</Text>
+                    <CompareBadge current={helpfulCount.current ? helpfulCount.current.find(helpful=>helpful.name === "Unhelpful")?.value || 0 : null} prev={helpfulCount.prev ? helpfulCount.prev.find(helpful=>helpful.name === "Unhelpful")?.value || 0 : null}/>
+                    </Flex>
                     </Flex>
                 </Flex>
                 <Flex onMouseEnter={()=>{
@@ -909,28 +1053,41 @@ function App(props) {
                         d3.select(piRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                     }} flexDirection={"column"} padding={"24px"} marginTop={"5px"} width={"100%"} height={"120px"} background={"#FFFFFF"} border={"1px solid #EAECF0"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06)"} borderRadius={"12px"}>
                     <Text color={"#475467"} fontWeight={"500"}>No Feedback</Text>
-                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.find(helpful=>helpful.name === "No feedback")?.value || "N/A"}</Text>
+                    <Flex>
+                    <Text fontWeight={"600"} fontSize={"36px"} marginTop={"auto"}>{helpfulCount.current?.find(helpful=>helpful.name === "No feedback")?.value || "N/A"}</Text>
+                    <CompareBadge current={helpfulCount.current ? helpfulCount.current.find(helpful=>helpful.name === "No feedback")?.value || 0 : null} prev={helpfulCount.prev ? helpfulCount.prev.find(helpful=>helpful.name === "No feedback")?.value || 0 : null}/>
+                    </Flex>
                 </Flex>
                 </Box>
-                </Flex>
             </Flex>
+            </Flex>
+
+            </Flex>
+            </Flex>
+
+            
+            
            
             
             </Box>
         
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
-                <Text padding={"10px"} fontWeight={"600"} fontSize={"18px"} color={"#101828"}>Top data sources mentioned in user queries</Text>
+                <Text padding={"10px"} fontWeight={"600"} fontSize={"18px"} color={"#101828"}>Top data sources mentioned in user queries <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
             <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
             <SimpleGrid minChildWidth={{base: "200px", lg: '350px'}} spacing='40px' padding={"20px"}>
+                {console.log(appsSum)}
                 {
-                    appsSum.sort((a,b)=>b.value-a.value).map((app,i)=>(
+                    appsSum.current?.sort((a,b)=>b.value-a.value).map((app,i)=>(
                         <Flex flexDir={"column"} key={i} maxWidth={"400px"}   height={"100%"} padding={"24px"} border={"1px solid #EAECF0"} borderRadius={"12px"} boxShadow={"0px 1px 3px rgba(16, 24, 40, 0.1), 0px 1px 2px rgba(16, 24, 40, 0.06);"}>
                             <Box background={"#F2F4F7"} border={"8px solid #F9FAFB"} borderRadius={"28px"} width={"60px"} height={"60px"} justifyContent={"center"} display={"flex"} padding={"6px"}>
                                 <img src={getAppLogo(app.name).src} alt={`${app.name} Logo`} />
                             </Box>
 
-                            <Text fontWeight={"400"} color={"#475467"}>User queiries mentioning {app.name}</Text>
+                            <Text fontWeight={"400"} color={"#475467"}>User queries mentioning {app.name}</Text>
+                            <Flex>
                             <Text fontSize={"24px"} fontWeight={"600"} marginTop={"auto"}>{app.value}</Text>
+                            <CompareBadge current={app.value} prev={useDate ? appsSum.prev ? appsSum.prev?.find(prevApp => prevApp.name === app.name)?.value || 0 :  0 : null} />
+                            </Flex>
                             
                             
                         </Flex>
@@ -941,14 +1098,15 @@ function App(props) {
             
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
                 <Flex>
-                    <Text as="b" fontSize={"2xl"}>Category</Text>
+                    <Text as="b" fontSize={"2xl"}>Conversation Analysis</Text>
                     <Spacer/>
                     <Button variant={"ghost"} onClick={()=>{setExcludeNoCategory(!excludeNoCategory)}}>{excludeNoCategory ? "Include No Category" : "Exclude No Category"}</Button>
                 </Flex>
+            <Flex flexDirection={"column"} gap={"10px"}>
             <Flex flexDirection={{base: "column", md: "row"}} gap={"10px"}>
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
 
-            <Text fontSize={"18px"} fontWeight={"600"}>Prompt Categories</Text>
+            <Text fontSize={"18px"} fontWeight={"600"}>Prompt Categories <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
                 
 
 
@@ -965,7 +1123,7 @@ function App(props) {
                 </Select>
             <SimpleGrid maxH={"500px"} overflowY={"auto"} minChildWidth='120px' spacing='40px' padding={"20px"}>
             {
-                categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).sort(function(a, b){
+                categoryData.current?.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).sort(function(a, b){
                     switch(categorySort){
                         case "value desc":
                             return b.value-a.value
@@ -994,7 +1152,7 @@ function App(props) {
                     return (
                         <Flex key={category.name} onMouseEnter={()=>{
                             d3.select(categoryRef.current).selectAll(".arcs").transition().attr("opacity", 0.3)
-                            d3.select(categoryRef.current).selectAll(`.arcs-${categoryData.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).findIndex(findCategory=>findCategory.name===category.name)}`).transition().attr("opacity", 1)
+                            d3.select(categoryRef.current).selectAll(`.arcs-${categoryData.current?.filter(entry => entry.value > 0 && !(entry.name === "None" && excludeNoCategory)).findIndex(findCategory=>findCategory.name===category.name)}`).transition().attr("opacity", 1)
                         }} onMouseLeave={()=>{
                             d3.select(categoryRef.current).selectAll(".arcs").transition().attr("opacity", 1)
                         }}>
@@ -1006,7 +1164,7 @@ function App(props) {
                                 {category.value}
                             </Text>
                             <Text fontSize={"10px"} fontWeight={"600"}>
-                                {((category.value/(excludeNoCategory ? promptTotal - (categoryData.find(entry=>entry.name=== "None") || {value:0}).value : promptTotal))*100).toFixed(3)}%
+                                {((category.value/(excludeNoCategory ? promptTotal.current - (categoryData.current?.find(entry=>entry.name=== "None") || {value:0}).value : promptTotal.current))*100).toFixed(3)}%
                             </Text>
                             </Box>
                         
@@ -1018,118 +1176,42 @@ function App(props) {
             </Flex>
             </Box>
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"}>
-            <Text fontSize={"18px"} fontWeight={"600"}>Prompt Categories</Text>
+            <Text fontSize={"18px"} fontWeight={"600"}>Prompt Categories <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
             <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
             <svg ref={categoryRef}/>
             </Box>
             </Flex>
-            </Box>
-            
-            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
-            <Flex flexDirection={"column"}>
-                    <Text fontSize={"2xl"} fontWeight={"600"}>Location</Text>
-                    <Text>World Map of Provided Locations</Text>
-                    </Flex>
-            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
-            <Select placeholder='Select option' defaultValue={"world"} onChange={(e)=>{setMapView(e.target.value)}}>
-                <option value='world'>World</option>
-                <option value='US'>US</option>
-            </Select>
-            <svg ref={worldRef}/>
-            </Box>
-            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
-                <Flex flexDirection={"row"}>
-                    <Flex flexDirection={"column"}>
-                    <Text fontSize={"2xl"} fontWeight={"600"}>Jobs</Text>
-                    <Text>Distribution of Jobs</Text>
-                    </Flex>
-                
-                    <Spacer/>
-                    <Button alignSelf={"center"} variant={"ghost"} onClick={()=>{setExcludeNoJob(!excludeNoJob)}}>{excludeNoJob ? "Include No Jobs" : "Exclude No Jobs"}</Button>
-                </Flex>
-            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
-            <svg ref={jobRef}/>
-            </Box>
-            
-            
-            
-            {
-                 !useDate && (
-                 <>
-                 <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
-                 <Text fontSize={"2xl"} fontWeight={"600"}>Conversations</Text>
-                <Text>Calendar view of conversations and exchange</Text>
-                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
-                 <Select placeholder='Select option' defaultValue={"totalConvos"} onChange={(e)=>{setCalView(e.target.value)}}>
-                    <option value='totalConvos'>Total Conversations</option>
-                    <option value='totalExchanges'>Total Exchanges</option>
-                    <option value='avgExchanges'>Average Exchanges</option>
-                </Select>
-                  <Button onClick={()=>{setCalDifference(!calDifference)}}>{calDifference ? "Show Total" : "Show Difference"}</Button>
-                <svg ref={calRef}/>
-                </Box>
-                 </>)
-            }
-           
             <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
-            <Text fontSize={"2xl"} fontWeight={"600"}>Chosen Apps</Text>
-            <Text>Distribution of chosen data sources.</Text>
-            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
-            <Button isDisabled={chosenAppsData.length===1&&chosenAppsData[0].name==="None"} onClick={()=>{setExcludeNoChosenApps(!excludeNoChosenApps)}}>{excludeNoChosenApps ? "Include No Chosen Apps" : "Exclude No Chosen Apps"}</Button>
-            <MultiSelect
-                isMulti
-                name="tags"
-                colorScheme="purple"
-                options={[
-                    {
-                        label: "Tags",
-                        options: [{
-                            label: "Transport",
-                            value: "Transport"
-                        },{
-                            label: "Health & Fitness",
-                            value: "Health"
-                        },{
-                            label: "Social & Streaming",
-                            value: "Social"
-                        },{
-                            label: "Misc",
-                            value: "Misc"
-                        },]
-                    }
-                ]}
-                placeholder="Show only apps with these tags"
-                onChange={(e)=>{setChosenAppsFilter({...chosenAppsFilter, tags:e.map(o=>o.value)})}}
-                closeMenuOnSelect={false}
-            />
-            <MultiSelect
-                isMulti
-                name="apps"
-                colorScheme="purple"
-                options={[
-                    {
-                        label: "Apps",
-                        options: filterAppsOptions
-                    }
-                ]}
-                placeholder="Show apps from users using these apps"
-                onChange={(e)=>{setChosenAppsFilter({...chosenAppsFilter, apps:e.map(o=>o.value)})}}
-                closeMenuOnSelect={false}
-            />
-            <Text>E.g. selecting "Transport" with "Facebook" will show the Transport apps that the Facebook users selected</Text>
-            <svg ref={chosenAppsRef}/>
-            </Box>
-            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
-            <Text fontSize={"2xl"} fontWeight={"600"}>Explore prompts</Text>
+            <Text fontSize={"2xl"} fontWeight={"600"}>Explore prompts <span style={{color: "#667085"}}>({showTimeFrame(promptRange)})</span></Text>
             <Text>Filter prompts by category, date or search.</Text>
             <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
             <Box marginBottom={"16px"}>
                 <Box width={"100%"} overflowX={"auto"}>
                 <ButtonGroup variant={"outline"} isAttached>
                     <Button isActive={promptRange === 0} onClick={()=>{setPromptRange(0)}}>View All</Button>
-                    <Button isActive={promptRange === 1} onClick={()=>{setPromptRange(1);setPromptAnalysisRange({start: new Date(new Date(today).setDate(today.getDate()+1)).getTime(), end: new Date(new Date(today).setDate(today.getDate()-7)).getTime()})}}>Last 7 Days</Button>
-                    <Button isActive={promptRange === 2} onClick={()=>{setPromptRange(2);setPromptAnalysisRange({start: new Date(new Date(today).setDate(today.getDate()+1)).getTime(), end: new Date(new Date(today).setDate(today.getDate()-14)).getTime()})}}>Last 14 Days</Button>
-                    <Button isActive={promptRange === 3} onClick={()=>{setPromptRange(3);setPromptAnalysisRange({start: new Date(new Date(today).setDate(today.getDate()+1)).getTime(), end: new Date(new Date(today).setDate(today.getDate()-30)).getTime()})}}>Last 30 days</Button>
+                    <Button isActive={promptRange === 1} onClick={()=>{
+                        var d = new Date();
+                        d.setHours(24,0,0,0);
+                        const date = new Date(d); 
+                        var date2 = new Date(d); 
+                        date2.setDate(date2.getDate() - 7); 
+                        setPromptRange(1); 
+                        setPromptAnalysisRange({start: date.getTime(), end: date2.getTime()}); 
+                        }}>Last 7 Days</Button>
+                    <Button isActive={promptRange === 2} onClick={()=>{var d = new Date();
+                        d.setHours(24,0,0,0);
+                        const date = new Date(d); 
+                        var date2 = new Date(d); 
+                        date2.setDate(date2.getDate() - 14); 
+                        setPromptRange(2); 
+                        setPromptAnalysisRange({start: date.getTime(), end: date2.getTime()}); }}>Last 14 Days</Button>
+                    <Button isActive={promptRange === 3} onClick={()=>{var d = new Date();
+                        d.setHours(24,0,0,0);
+                        const date = new Date(d); 
+                        var date2 = new Date(d); 
+                        date2.setDate(date2.getDate() - 30); 
+                        setPromptRange(3); 
+                        setPromptAnalysisRange({start: date.getTime(), end: date2.getTime()}); }}>Last 30 days</Button>
                 </ButtonGroup>
                 </Box>
                 <Input placeholder="Search" value={promptSearch} onChange={(e)=>{setPromptSearch(e.target.value)}}/>
@@ -1166,7 +1248,7 @@ function App(props) {
                         options={[
                             {
                                 label: "Categories",
-                                options: categoryData.map(item => ({label: item.name, value: item.name}))
+                                options: categoryData.current?.map(item => ({label: item.name, value: item.name}))
                             }
                         ]}
                         placeholder="Show exchanges with the category"
@@ -1180,7 +1262,7 @@ function App(props) {
                         options={[
                             {
                                 label: "Jobs",
-                                options: jobs.map(item => ({label: item.name, value: item.name}))
+                                options: jobs.current?.map(item => ({label: item.name, value: item.name}))
                             }
                         ]}
                         placeholder="Show exchanges from users with this job"
@@ -1248,9 +1330,115 @@ function App(props) {
             }).flat().filter(exchange=>((promptFeedbackView.dataSources.length === 0 ? true : exchange.dataSources.length > 0 ? promptDataSourceViewUnion === true ? promptFeedbackView.dataSources.every(v => exchange.dataSources.includes(v)) : promptFeedbackView.dataSources.some(v => exchange.dataSources.includes(v))  : false)&&(promptFeedbackView.feedback.length === 0 ? true : promptFeedbackView.feedback.includes(exchange.helpful))&&(promptFeedbackView.category.length === 0 ? true : promptFeedbackView.category.includes(exchange.category))&&(promptFeedbackView.job.length === 0 ? true : promptFeedbackView.job.includes(exchange.job))&&(promptFeedbackView.apps.length === 0 ? true : promptFeedbackView.apps.some(r=> exchange.chosenApps.includes(r)))&&(promptSearch === "" ? true : exchange.prompt.toLowerCase().indexOf(promptSearch.toLowerCase()) !== -1)&&(promptRange === 0 ? true : exchange.createdAt > promptAnalysisRange.end && exchange.createdAt < (promptAnalysisRange.start))))}  itemsPerPage={10}/>
             </Box>
             </Flex>
+            </Box>
+            {
+                 !useDate && (
+                 <>
+                 <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"}>
+                 <Text fontSize={"2xl"} fontWeight={"600"}>Conversations <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
+                <Text>Calendar view of conversations and exchange</Text>
+                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+                 <Select placeholder='Select option' defaultValue={"totalConvos"} onChange={(e)=>{setCalView(e.target.value)}}>
+                    <option value='totalConvos'>Total Conversations</option>
+                    <option value='totalExchanges'>Total Exchanges</option>
+                    <option value='avgExchanges'>Average Exchanges</option>
+                </Select>
+                  <Button onClick={()=>{setCalDifference(!calDifference)}}>{calDifference ? "Show Total" : "Show Difference"}</Button>
+                <svg ref={calRef}/>
+                </Box>
+                 </>)
+            }
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+            <Text as="b" fontSize={"2xl"}>User Profiles</Text>
+            <Flex flexDir={"column"} gap={"10px"}>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={"100%"}>
+            <Flex flexDirection={"column"}>
+                    <Text fontSize={"2xl"} fontWeight={"600"}>Location <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
+                    <Text>World Map of Provided Locations</Text>
+                    </Flex>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <Select placeholder='Select option' defaultValue={"world"} onChange={(e)=>{setMapView(e.target.value)}}>
+                <option value='world'>World</option>
+                <option value='US'>US</option>
+            </Select>
+            <svg ref={worldRef}/>
+            </Box>
+            <Flex flexDir={{base: "column", md: "row"}} gap={"10px"}>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px 16px"} width={{base: "100%", md: "50%"}}>
+                <Flex flexDirection={"row"}>
+                    <Flex flexDirection={"column"}>
+                    <Text fontSize={"2xl"} fontWeight={"600"}>Jobs <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
+                    <Text>Distribution of Jobs</Text>
+                    </Flex>
+                
+                    <Spacer/>
+                    <Button alignSelf={"center"} variant={"ghost"} onClick={()=>{setExcludeNoJob(!excludeNoJob)}}>{excludeNoJob ? "Include No Jobs" : "Exclude No Jobs"}</Button>
+                </Flex>
+            <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <svg ref={jobRef}/>
+            </Box>
+            <Box border={"1px solid #D0D5DD"} borderRadius={"8px"} padding={"24px"} width={{base: "100%", md: "50%"}}>
+            <Flex flexDirection={"row"}>
+                    <Flex flexDirection={"column"}>
+                    <Text fontSize={"2xl"} fontWeight={"600"}>Chosen Apps <span style={{color: "#667085"}}>({showTimeFrame(dateButton)})</span></Text>
+                    <Text>Distribution of chosen data sources.</Text>
+                    </Flex>
+                
+                    <Spacer/>
+            
+                    <Button alignSelf={"center"} variant={"ghost"} isDisabled={chosenAppsData.current?.length===1&&chosenAppsData.current[0].name==="None"} onClick={()=>{setExcludeNoChosenApps(!excludeNoChosenApps)}}>{excludeNoChosenApps ? "Include No Chosen Apps" : "Exclude No Chosen Apps"}</Button>
+                </Flex>
+                <Box height={"1px"} width={"100%"} background={"#EAECF0"} marginTop={"16px"} marginBottom={"16px"}></Box>
+            <MultiSelect
+                isMulti
+                name="tags"
+                colorScheme="purple"
+                options={[
+                    {
+                        label: "Tags",
+                        options: [{
+                            label: "Transport",
+                            value: "Transport"
+                        },{
+                            label: "Health & Fitness",
+                            value: "Health"
+                        },{
+                            label: "Social & Streaming",
+                            value: "Social"
+                        },{
+                            label: "Misc",
+                            value: "Misc"
+                        },]
+                    }
+                ]}
+                placeholder="Show only apps with these tags"
+                onChange={(e)=>{setChosenAppsFilter({...chosenAppsFilter, tags:e.map(o=>o.value)})}}
+                closeMenuOnSelect={false}
+            />
+            <MultiSelect
+                isMulti
+                name="apps"
+                colorScheme="purple"
+                options={[
+                    {
+                        label: "Apps",
+                        options: filterAppsOptions
+                    }
+                ]}
+                placeholder="Show apps from users using these apps"
+                onChange={(e)=>{setChosenAppsFilter({...chosenAppsFilter, apps:e.map(o=>o.value)})}}
+                closeMenuOnSelect={false}
+            />
+            <Text>E.g. selecting "Transport" with "Facebook" will show the Transport apps that the Facebook users selected</Text>
+            <svg ref={chosenAppsRef}/>
+            </Box>
+            </Flex>
+            </Flex>
+            </Box>
+            </Flex>
         </Box>        
 
-        </>
+        </Box>
     )
 }
 
